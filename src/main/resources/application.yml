@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: strange-back
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+app:
+  redis:
+    channel: ${REDIS_CHANNEL:safety-events}
+  websocket:
+    allowed-origin-patterns: ${WEBSOCKET_ALLOWED_ORIGIN_PATTERNS:http://localhost:3000,http://localhost:5173}
+
+logging:
+  level:
+    com.strange.safety: INFO
