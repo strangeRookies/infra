@@ -1,76 +1,97 @@
 # Strange Infra
 
-Smart Safety Monitoring System의 로컬 개발용 인프라 설정 저장소입니다.
+Local development infrastructure for the Smart Safety Monitoring System.
 
-## 역할
+## Current MVP Broker
 
-실시간 데이터 파이프라인에서 Redis Message Broker 실행 환경을 제공합니다.
-
-```text
-Python Edge AI -> Redis Message Broker -> Spring Boot Backend -> React Frontend
-```
-
-## Redis Message Broker
-
-로컬 개발 환경에서는 별도 비밀번호 없이 Redis를 실행합니다.
-
-### 실행
-
-```bash
-docker compose up -d redis
-```
-
-Docker Compose v2 플러그인이 없는 환경에서는 다음 명령을 사용합니다.
-
-```bash
-docker-compose up -d redis
-```
-
-### 컨테이너 상태 확인
-
-```bash
-docker ps
-```
-
-`strange-redis` 컨테이너가 실행 중인지 확인합니다.
-
-### PING 검증
-
-```bash
-docker exec strange-redis redis-cli PING
-```
-
-정상 응답:
+The MVP uses Mosquitto MQTT Broker as the default message broker for safety events.
 
 ```text
-PONG
+Python Edge AI -> MQTT Broker (Mosquitto) -> Spring Boot MQTT Subscriber -> WebSocket -> React
 ```
 
-### 접속 정보
+The MQTT topic for safety events is:
 
 ```text
-Host: localhost
-Port: 6379
-URL: redis://localhost:6379
-Password: none
+safety/events
 ```
 
-## 환경 변수
+Redis may still exist in this repository for legacy local tests or future debounce/cache experiments, but MQTT is the default broker for the current CCTV Edge AI MVP direction.
 
-`.env.example`의 기본값은 로컬 개발용 Redis 접속 정보를 제공합니다.
+## Mosquitto MQTT Broker
+
+### Run
+
+```bash
+docker compose up -d mosquitto
+```
+
+If Docker Compose v2 is not available:
+
+```bash
+docker-compose up -d mosquitto
+```
+
+### Ports
 
 ```text
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_URL=redis://localhost:6379
+MQTT TCP: 1883
+MQTT WebSocket: 9001
 ```
 
-## 데이터 볼륨
+### Local Test
 
-Redis 데이터는 `redis-data` Docker volume에 저장됩니다.
+Subscribe to safety events:
 
-## 주의사항
+```bash
+mosquitto_sub -h localhost -p 1883 -t safety/events
+```
 
-- 이 구성은 로컬 개발용입니다.
-- 실제 비밀번호나 민감정보를 저장하지 않습니다.
-- Spring Boot, React, Python Edge AI 코드는 이 저장소에서 수정하지 않습니다.
+Publish a test safety event:
+
+```bash
+mosquitto_pub -h localhost -p 1883 -t safety/events -m '{"type":"fall_detected","camera_id":"cam_01","severity":"HIGH","message":"test"}'
+```
+
+If the Mosquitto client tools are not installed locally, use the broker container:
+
+```bash
+docker exec -it strange-mosquitto mosquitto_sub -h localhost -p 1883 -t safety/events
+```
+
+```bash
+docker exec strange-mosquitto mosquitto_pub -h localhost -p 1883 -t safety/events -m '{"type":"fall_detected","camera_id":"cam_01","severity":"HIGH","message":"test"}'
+```
+
+### Configuration
+
+Local Mosquitto configuration:
+
+```text
+mosquitto/config/mosquitto.conf
+```
+
+For local development, anonymous MQTT connections are allowed.
+
+## Environment Variables
+
+```text
+MQTT_HOST=localhost
+MQTT_PORT=1883
+MQTT_WS_PORT=9001
+MQTT_TOPIC=safety/events
+```
+
+## Security TODO
+
+- Do not use anonymous MQTT access in production.
+- Add MQTT username/password or certificate-based authentication before deployment.
+- Add ACL rules so publishers and subscribers can only access the topics they need.
+- Do not commit real passwords, API keys, certificates, or private broker credentials.
+
+## Out Of Scope For This Step
+
+- Spring Boot MQTT subscriber changes
+- React dashboard changes
+- Python Edge AI publisher changes
+- Real CCTV video or private test media
