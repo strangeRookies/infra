@@ -6,7 +6,8 @@ import {
   HelpCircle, Calendar, Activity, HardDrive, Beaker
 } from 'lucide-react';
 import { CCTVFloorPlan } from '../components/CCTVFloorPlan';
-import hospitalHallwayCctv from '../../imports/hospital_hallway_cctv.png';
+import { LiveCameraGrid } from '../components/LiveCameraGrid';
+import { useLiveCameras } from '../hooks/useLiveCameras';
 
 interface IntegratedDashboardProps {
   onLogout: () => void;
@@ -104,6 +105,7 @@ const TEST_MODE_FEEDS = [
 ];
 
 export function IntegratedDashboard({ onLogout }: IntegratedDashboardProps) {
+  const liveCameras = useLiveCameras();
   const [activeMenu, setActiveMenu] = useState<MenuId>('home');
   const [selectedFloor, setSelectedFloor] = useState<'1F' | '2F' | '3F'>('1F');
   const [expandedSpace, setExpandedSpace] = useState<string>('seoul-hospital');
@@ -274,8 +276,11 @@ export function IntegratedDashboard({ onLogout }: IntegratedDashboardProps) {
                   </div>
                   <Maximize2 className="w-4 h-4 text-slate-500 hover:text-white transition-colors cursor-pointer" />
                 </div>
-                <div className="relative aspect-video max-h-[260px] bg-black overflow-hidden">
-                  <img src={hospitalHallwayCctv} alt="feed" className="w-full h-full object-cover opacity-80 brightness-90 contrast-110" />
+                <div className="relative bg-black overflow-hidden p-3">
+                  <LiveCameraGrid
+                    cameras={liveCameras.filter(camera => camera.name === selectedCamera?.id).slice(0, 1)}
+                    compact
+                  />
                   <div className="absolute top-2 left-2 bg-slate-900/90 border border-slate-800 rounded px-2 py-0.5 text-[10px] text-slate-300 font-mono">
                     CH-0{selectedCamera ? selectedCamera.id.replace('CCTV-', '') : '2'}
                   </div>
@@ -318,11 +323,12 @@ export function IntegratedDashboard({ onLogout }: IntegratedDashboardProps) {
                   전 노드 연결 정상
                 </span>
               </div>
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                {TEST_MODE_FEEDS.map(cam => (
+              <LiveCameraGrid cameras={liveCameras} />
+              <div className="hidden grid-cols-1 md:grid-cols-2 gap-3">
+                {TEST_MODE_FEEDS.slice(0, 4).map(cam => (
                   <div key={cam.id} className="bg-[#111827] border border-slate-800 rounded-xl overflow-hidden group">
                     <div className="relative aspect-video bg-black overflow-hidden">
-                      <img src={hospitalHallwayCctv} alt={cam.name} className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-300" />
+                      <img src={liveCameras.find(feed => feed.name === cam.id)?.streamUrl || liveCameras[0].streamUrl} alt={cam.name} className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-300" />
                       <div className="absolute top-2 left-2 flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
                         <span className="text-[9px] text-rose-400 font-bold">LIVE</span>
@@ -345,7 +351,7 @@ export function IntegratedDashboard({ onLogout }: IntegratedDashboardProps) {
             <div className="flex-1 p-6 overflow-y-auto space-y-4">
               <h2 className="text-sm font-bold text-white">전체 구역 고정형 관제 뷰</h2>
               <div className="h-[400px] border border-slate-800 rounded-2xl bg-black overflow-hidden relative">
-                <img src={hospitalHallwayCctv} alt="monitoring" className="w-full h-full object-cover brightness-75" />
+                <LiveCameraGrid cameras={liveCameras} className="h-full p-3" />
                 <div className="absolute top-4 left-4 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-lg flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
                   <span className="text-xs font-bold text-white">복도 A — 실시간 분석 채널</span>
@@ -388,7 +394,7 @@ export function IntegratedDashboard({ onLogout }: IntegratedDashboardProps) {
                   className={`bg-[#0f172a] rounded-xl p-3 flex items-center gap-3 transition-opacity ${evt.status === 'resolved' ? 'opacity-50' : ''}`}
                 >
                   <div className="w-12 h-12 bg-[#374151] rounded-lg flex-shrink-0 overflow-hidden">
-                    <img src={hospitalHallwayCctv} alt="" className="w-full h-full object-cover opacity-60 brightness-50" />
+                    <div className="flex h-full w-full items-center justify-center bg-slate-900 text-[9px] font-bold text-slate-500">LIVE</div>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-bold text-sm leading-tight truncate">{evt.type} 감지</p>
