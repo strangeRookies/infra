@@ -12,12 +12,12 @@ import {
 } from 'lucide-react';
 
 interface LoginPageProps {
-  onLogin: (role: 'individual' | 'corporate', username: string) => void;
+  onLogin: (role: 'individual' | 'corporate' | 'admin', username: string) => void;
   onNavigateToSignUp: (type: 'personal' | 'corporate') => void;
 }
 
 export function LoginPage({ onLogin, onNavigateToSignUp }: LoginPageProps) {
-  const [loginType, setLoginType] = useState<'individual' | 'corporate'>('individual');
+  const [loginType, setLoginType] = useState<'individual' | 'corporate' | 'admin'>('individual');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -275,12 +275,12 @@ export function LoginPage({ onLogin, onNavigateToSignUp }: LoginPageProps) {
             </div>
 
             {/* Account Type selectors */}
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              {/* Individual Selector */}
+            <div className="grid grid-cols-3 gap-2 mb-6">
+              {/* Individual */}
               <button
                 type="button"
                 onClick={() => setLoginType('individual')}
-                className={`p-3.5 rounded-xl border text-left transition-all ${
+                className={`p-3 rounded-xl border text-left transition-all ${
                   loginType === 'individual'
                     ? 'border-blue-500/80 bg-blue-600/5 shadow-inner'
                     : 'border-slate-800/80 hover:border-slate-700/60 bg-transparent'
@@ -288,17 +288,17 @@ export function LoginPage({ onLogin, onNavigateToSignUp }: LoginPageProps) {
               >
                 <div className="flex items-center justify-between mb-1.5">
                   <span className={`w-2 h-2 rounded-full ${loginType === 'individual' ? 'bg-blue-500' : 'bg-transparent border border-slate-700'}`} />
-                  <User className={`w-4 h-4 ${loginType === 'individual' ? 'text-blue-400' : 'text-slate-500'}`} />
+                  <User className={`w-3.5 h-3.5 ${loginType === 'individual' ? 'text-blue-400' : 'text-slate-500'}`} />
                 </div>
-                <h4 className={`text-[11px] font-bold ${loginType === 'individual' ? 'text-blue-400' : 'text-slate-300'}`}>개인용 로그인</h4>
-                <p className="text-[9px] text-slate-500 font-medium mt-0.5">개인 계정으로 로그인</p>
+                <h4 className={`text-[10px] font-bold ${loginType === 'individual' ? 'text-blue-400' : 'text-slate-300'}`}>개인용</h4>
+                <p className="text-[9px] text-slate-500 font-medium mt-0.5 leading-tight">카메라 등록 가능</p>
               </button>
 
-              {/* Corporate Selector */}
+              {/* Corporate */}
               <button
                 type="button"
                 onClick={() => setLoginType('corporate')}
-                className={`p-3.5 rounded-xl border text-left transition-all ${
+                className={`p-3 rounded-xl border text-left transition-all ${
                   loginType === 'corporate'
                     ? 'border-emerald-500/80 bg-emerald-600/5 shadow-inner'
                     : 'border-slate-800/80 hover:border-slate-700/60 bg-transparent'
@@ -306,34 +306,54 @@ export function LoginPage({ onLogin, onNavigateToSignUp }: LoginPageProps) {
               >
                 <div className="flex items-center justify-between mb-1.5">
                   <span className={`w-2 h-2 rounded-full ${loginType === 'corporate' ? 'bg-emerald-500' : 'bg-transparent border border-slate-700'}`} />
-                  <Building className={`w-4 h-4 ${loginType === 'corporate' ? 'text-emerald-400' : 'text-slate-500'}`} />
+                  <Building className={`w-3.5 h-3.5 ${loginType === 'corporate' ? 'text-emerald-400' : 'text-slate-500'}`} />
                 </div>
-                <h4 className={`text-[11px] font-bold ${loginType === 'corporate' ? 'text-emerald-400' : 'text-slate-300'}`}>기업용 로그인</h4>
-                <p className="text-[9px] text-slate-500 font-medium mt-0.5">기업 계정으로 로그인</p>
+                <h4 className={`text-[10px] font-bold ${loginType === 'corporate' ? 'text-emerald-400' : 'text-slate-300'}`}>기업용</h4>
+                <p className="text-[9px] text-slate-500 font-medium mt-0.5 leading-tight">기관 담당자</p>
+              </button>
+
+              {/* Admin */}
+              <button
+                type="button"
+                onClick={() => setLoginType('admin')}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  loginType === 'admin'
+                    ? 'border-violet-500/80 bg-violet-600/5 shadow-inner'
+                    : 'border-slate-800/80 hover:border-slate-700/60 bg-transparent'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className={`w-2 h-2 rounded-full ${loginType === 'admin' ? 'bg-violet-500' : 'bg-transparent border border-slate-700'}`} />
+                  <Shield className={`w-3.5 h-3.5 ${loginType === 'admin' ? 'text-violet-400' : 'text-slate-500'}`} />
+                </div>
+                <h4 className={`text-[10px] font-bold ${loginType === 'admin' ? 'text-violet-400' : 'text-slate-300'}`}>관리자</h4>
+                <p className="text-[9px] text-slate-500 font-medium mt-0.5 leading-tight">통합 관제 admin</p>
               </button>
             </div>
 
-            {/* Sign Up Link */}
-            <div className="space-y-4">
-              <button
-                type="button"
-                onClick={() => onNavigateToSignUp(loginType === 'individual' ? 'personal' : 'corporate')}
-                className="w-full py-3 bg-[#0a1224] border border-slate-800 hover:border-slate-700 hover:bg-[#0d162d] text-slate-200 rounded-xl text-xs font-bold transition-all"
-              >
-                회원가입
-              </button>
-              
-              <div className="text-center">
-                <span className="text-[10px] text-slate-500 font-medium">계정이 없으신가요? </span>
+            {/* Sign Up Link — admin에게는 숨김 */}
+            {loginType !== 'admin' && (
+              <div className="space-y-4">
                 <button
                   type="button"
                   onClick={() => onNavigateToSignUp(loginType === 'individual' ? 'personal' : 'corporate')}
-                  className="text-[10px] text-blue-400 hover:text-blue-300 font-bold hover:underline transition-colors ml-1"
+                  className="w-full py-3 bg-[#0a1224] border border-slate-800 hover:border-slate-700 hover:bg-[#0d162d] text-slate-200 rounded-xl text-xs font-bold transition-all"
                 >
-                  회원가입으로 시작하세요.
+                  회원가입
                 </button>
+
+                <div className="text-center">
+                  <span className="text-[10px] text-slate-500 font-medium">계정이 없으신가요? </span>
+                  <button
+                    type="button"
+                    onClick={() => onNavigateToSignUp(loginType === 'individual' ? 'personal' : 'corporate')}
+                    className="text-[10px] text-blue-400 hover:text-blue-300 font-bold hover:underline transition-colors ml-1"
+                  >
+                    회원가입으로 시작하세요.
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
           </div>
         </div>

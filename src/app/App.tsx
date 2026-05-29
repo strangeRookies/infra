@@ -6,20 +6,23 @@ import { CorporateSignUp } from './pages/CorporateSignUp';
 import { NurseDashboard } from './pages/NurseDashboard';
 import { IntegratedDashboard } from './pages/IntegratedDashboard';
 
-type ViewType = 'login' | 'personalSignUp' | 'corporateSignUp' | 'nurseDashboard' | 'integratedDashboard';
+type ViewType = 'login' | 'personalSignUp' | 'corporateSignUp' | 'userDashboard' | 'adminDashboard';
+type UserType = 'individual' | 'corporate';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewType>('login');
-  const [sessionUser, setSessionUser] = useState('간호사 김민정');
+  const [sessionUser, setSessionUser] = useState('');
+  const [userType, setUserType] = useState<UserType>('individual');
 
-  const handleLogin = (role: 'individual' | 'corporate', username: string) => {
+  const handleLogin = (role: 'individual' | 'corporate' | 'admin', username: string) => {
     setSessionUser(username);
-    if (role === 'individual') {
-      setCurrentView('nurseDashboard');
-      toast.success(`[로그인 성공] ${username} 간호사님, 환영합니다.`);
+    if (role === 'admin') {
+      setCurrentView('adminDashboard');
+      toast.success(`[관리자 로그인] ${username}님, 통합 관제 시스템에 접속했습니다.`);
     } else {
-      setCurrentView('integratedDashboard');
-      toast.success(`[로그인 성공] 최고 권한 관제자 계정으로 접속했습니다.`);
+      setUserType(role);
+      setCurrentView('userDashboard');
+      toast.success(`[로그인 성공] ${username}님, 안전 관제 시스템에 접속했습니다.`);
     }
   };
 
@@ -72,15 +75,16 @@ export default function App() {
         />
       )}
 
-      {currentView === 'nurseDashboard' && (
-        <NurseDashboard 
+      {currentView === 'userDashboard' && (
+        <NurseDashboard
           username={sessionUser}
+          userType={userType}
           onLogout={handleLogout}
         />
       )}
 
-      {currentView === 'integratedDashboard' && (
-        <IntegratedDashboard 
+      {currentView === 'adminDashboard' && (
+        <IntegratedDashboard
           onLogout={handleLogout}
         />
       )}
