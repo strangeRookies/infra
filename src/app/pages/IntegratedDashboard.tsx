@@ -4,9 +4,13 @@ import {
   Play, Pause, Volume2, Maximize2, Check,
   LayoutDashboard, Video, LogOut, Settings,
   HelpCircle, Calendar, Activity, HardDrive, Beaker,
-  MessageSquare, Send, ChevronLeft
+  MessageSquare, Send, ChevronLeft, Camera
 } from 'lucide-react';
 import { CCTVFloorPlan } from '../components/CCTVFloorPlan';
+import { LiveCameraGrid } from '../components/LiveCameraGrid';
+import { useLiveCameras } from '../hooks/useLiveCameras';
+import { CCTVStatsCards } from '../components/CCTVStatsCards';
+import { CCTVRegistration } from '../components/CCTVRegistration';
 import hospitalHallwayCctv from '../../imports/hospital_hallway_cctv.png';
 import type { Inquiry } from '../types/inquiry';
 
@@ -80,14 +84,17 @@ const SPACES = [
   { id: 'community-center', label: '중구 주민센터', floors: [] },
 ];
 
-type MenuId = 'home' | 'alerts' | 'history' | 'qna' | 'test';
+type MenuId = 'home' | 'monitoring' | 'alerts' | 'history' | 'qna' | 'settings' | 'cctvReg' | 'test';
 type InquiryCategory = Inquiry['category'];
 
 const MENU_ITEMS: { id: MenuId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: 'home',    label: '대시보드 홈', icon: LayoutDashboard },
-  { id: 'alerts',  label: '이벤트 알림', icon: Bell            },
-  { id: 'history', label: '이벤트 기록', icon: Calendar        },
-  { id: 'qna',     label: '문의',       icon: HelpCircle      },
+  { id: 'home',       label: '대시보드 홈',   icon: LayoutDashboard },
+  { id: 'monitoring', label: '실시간 모니터링', icon: Video           },
+  { id: 'alerts',     label: '이벤트 알림',   icon: Bell            },
+  { id: 'history',    label: '이벤트 기록',   icon: Calendar        },
+  { id: 'qna',        label: '문의',         icon: HelpCircle      },
+  { id: 'settings',   label: '설정',         icon: Settings        },
+  { id: 'cctvReg',    label: 'CCTV 등록',     icon: Camera          },
 ];
 
 const CATEGORY_STYLES: Record<InquiryCategory, string> = {
@@ -114,6 +121,7 @@ const TEST_MODE_FEEDS = [
 ];
 
 export function IntegratedDashboard({ onLogout, inquiries, onAddReply }: IntegratedDashboardProps) {
+  const liveCameras = useLiveCameras();
   const [activeMenu, setActiveMenu] = useState<MenuId>('home');
   const [selectedFloor, setSelectedFloor] = useState<'1F' | '2F' | '3F'>('1F');
   const [expandedSpace, setExpandedSpace] = useState<string>('seoul-hospital');
@@ -292,6 +300,11 @@ export function IntegratedDashboard({ onLogout, inquiries, onAddReply }: Integra
           {/* HOME view */}
           {activeMenu === 'home' && (
             <div className="flex-1 p-4 gap-4 overflow-y-auto flex flex-col">
+              <CCTVStatsCards
+                activeFeedsCount={liveCameras.filter(c => c.connectionStatus === 'online').length}
+                totalFeedsCount={liveCameras.length}
+                alertsCount={events.filter(e => e.status === 'new').length}
+              />
               <div className="h-[400px] min-h-[400px]">
                 <CCTVFloorPlan cameras={cameras} onCameraClick={handleCameraClick} selectedCameraId={selectedCamera?.id || null} />
               </div>
@@ -306,8 +319,11 @@ export function IntegratedDashboard({ onLogout, inquiries, onAddReply }: Integra
                   </div>
                   <Maximize2 className="w-4 h-4 text-slate-500 hover:text-white transition-colors cursor-pointer" />
                 </div>
-                <div className="relative aspect-video max-h-[260px] bg-black overflow-hidden">
-                  <img src={hospitalHallwayCctv} alt="feed" className="w-full h-full object-cover opacity-80 brightness-90 contrast-110" />
+                <div className="relative bg-black overflow-hidden p-3">
+                  <LiveCameraGrid
+                    cameras={liveCameras.filter(camera => camera.name === selectedCamera?.id).slice(0, 1)}
+                    compact
+                  />
                   <div className="absolute top-2 left-2 bg-slate-900/90 border border-slate-800 rounded px-2 py-0.5 text-[10px] text-slate-300 font-mono">
                     CH-0{selectedCamera ? selectedCamera.id.replace('CCTV-', '') : '2'}
                   </div>
@@ -350,11 +366,12 @@ export function IntegratedDashboard({ onLogout, inquiries, onAddReply }: Integra
                   전 노드 연결 정상
                 </span>
               </div>
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                {TEST_MODE_FEEDS.map(cam => (
+              <LiveCameraGrid cameras={liveCameras} />
+              <div className="hidden grid-cols-1 md:grid-cols-2 gap-3">
+                {TEST_MODE_FEEDS.slice(0, 4).map(cam => (
                   <div key={cam.id} className="bg-[#111827] border border-slate-800 rounded-xl overflow-hidden group">
                     <div className="relative aspect-video bg-black overflow-hidden">
-                      <img src={hospitalHallwayCctv} alt={cam.name} className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-300" />
+                      <img src={liveCameras.find(feed => feed.name === cam.id)?.streamUrl || liveCameras[0].streamUrl} alt={cam.name} className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-300" />
                       <div className="absolute top-2 left-2 flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
                         <span className="text-[9px] text-rose-400 font-bold">LIVE</span>
@@ -372,8 +389,22 @@ export function IntegratedDashboard({ onLogout, inquiries, onAddReply }: Integra
             </div>
           )}
 
-          {/* ALERTS / HISTORY placeholder */}
-          {(activeMenu === 'alerts' || activeMenu === 'history') && (
+          {/* MONITORING view */}
+          {activeMenu === 'monitoring' && (
+            <div className="flex-1 p-6 overflow-y-auto space-y-4">
+              <h2 className="text-sm font-bold text-white">전체 구역 고정형 관제 뷰</h2>
+              <div className="h-[400px] border border-slate-800 rounded-2xl bg-black overflow-hidden relative">
+                <LiveCameraGrid cameras={liveCameras} className="h-full p-3" />
+                <div className="absolute top-4 left-4 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-lg flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                  <span className="text-xs font-bold text-white">복도 A — 실시간 분석 채널</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ALERTS / HISTORY / SETTINGS placeholder */}
+          {(activeMenu === 'alerts' || activeMenu === 'history' || activeMenu === 'settings') && (
             <div className="flex-1 flex items-center justify-center text-slate-500">
               <div className="text-center">
                 {activeMenu === 'alerts' && <Bell className="w-12 h-12 mx-auto mb-3 opacity-30" />}
@@ -383,6 +414,15 @@ export function IntegratedDashboard({ onLogout, inquiries, onAddReply }: Integra
                 </p>
               </div>
             </div>
+          )}
+
+          {/* ===== CCTV REGISTRATION VIEW ===== */}
+          {activeMenu === 'cctvReg' && (
+            <CCTVRegistration 
+              onRegisterComplete={(count) => {
+                console.log(`Registered ${count} corporate cameras successfully.`);
+              }}
+            />
           )}
 
           {/* ===== QNA ADMIN VIEW ===== */}
@@ -561,7 +601,7 @@ export function IntegratedDashboard({ onLogout, inquiries, onAddReply }: Integra
                   className={`bg-[#0f172a] rounded-xl p-3 flex items-center gap-3 transition-opacity ${evt.status === 'resolved' ? 'opacity-50' : ''}`}
                 >
                   <div className="w-12 h-12 bg-[#374151] rounded-lg flex-shrink-0 overflow-hidden">
-                    <img src={hospitalHallwayCctv} alt="" className="w-full h-full object-cover opacity-60 brightness-50" />
+                    <div className="flex h-full w-full items-center justify-center bg-slate-900 text-[9px] font-bold text-slate-500">LIVE</div>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-bold text-sm leading-tight truncate">{evt.type} 감지</p>

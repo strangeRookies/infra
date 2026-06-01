@@ -5,6 +5,10 @@ import {
   HelpCircle, Camera, Plus, Trash2, MessageSquare, Send, ChevronLeft,
   User, Lock, Eye, EyeOff, Phone, Mail, LogIn, KeyRound, Smartphone
 } from 'lucide-react';
+import { LiveCameraGrid } from '../components/LiveCameraGrid';
+import { LIVE_CAMERAS } from '../data/cameras';
+import { useLiveCameras } from '../hooks/useLiveCameras';
+import { CCTVStatsCards } from '../components/CCTVStatsCards';
 import hospitalHallwayCctv from '../../imports/hospital_hallway_cctv.png';
 import type { Inquiry } from '../types/inquiry';
 
@@ -114,6 +118,7 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
 }
 
 export function NurseDashboard({ username, userType, onLogout, inquiries, onAddInquiry }: NurseDashboardProps) {
+  const liveCameras = useLiveCameras();
   const [activeMenu, setActiveMenu] = useState<MenuId>('home');
   const [alerts, setAlerts] = useState<IncidentAlert[]>(INITIAL_ALERTS);
 
@@ -307,12 +312,27 @@ export function NurseDashboard({ username, userType, onLogout, inquiries, onAddI
                   </h2>
                   <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/20">전 노드 연결 정상</span>
                 </div>
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                  {CCTV_FEEDS.map(cam => (
-                    <div key={cam.id} className="bg-[#111827] border border-slate-800 rounded-xl overflow-hidden cursor-pointer group"
-                      onClick={() => { const e = alerts.find(a => a.camera === cam.name); if (e) setSelectedIncident(e); }}>
+                <CCTVStatsCards
+                  activeFeedsCount={liveCameras.filter(c => c.connectionStatus === 'online').length}
+                  totalFeedsCount={liveCameras.length}
+                  alertsCount={activeTenMinAlerts.length}
+                />
+                <LiveCameraGrid
+                  cameras={liveCameras}
+                  onCameraClick={camera => {
+                    const event = alerts.find(alert => alert.camera === camera.location || alert.camera === camera.name);
+                    if (event) setSelectedIncident(event);
+                  }}
+                />
+                <div className="hidden grid-cols-1 md:grid-cols-2 gap-3">
+                  {CCTV_FEEDS.slice(0, 4).map(cam => (
+                    <div
+                      key={cam.id}
+                      className="bg-[#111827] border border-slate-800 rounded-xl overflow-hidden cursor-pointer group"
+                      onClick={() => { const e = alerts.find(a => a.camera === cam.name); if (e) setSelectedIncident(e); }}
+                    >
                       <div className="relative aspect-video bg-black overflow-hidden">
-                        <img src={hospitalHallwayCctv} alt={cam.name} className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 opacity-85 ${cam.style}`} />
+                        <img src={liveCameras.find(feed => feed.name === cam.id)?.streamUrl || liveCameras[0].streamUrl} alt={cam.name} className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 opacity-85 ${cam.style}`} />
                         <div className="absolute top-2 left-2 flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
                           <span className="text-[9px] text-rose-400 font-extrabold">LIVE</span>
@@ -338,7 +358,7 @@ export function NurseDashboard({ username, userType, onLogout, inquiries, onAddI
                     {alerts.slice(0, 5).map(evt => (
                       <div key={evt.id} className={`bg-[#0f172a] rounded-xl p-3 flex items-center gap-3 ${evt.status === 'resolved' ? 'opacity-50' : ''}`}>
                         <div className="w-12 h-12 bg-[#374151] rounded-lg flex-shrink-0 overflow-hidden">
-                          <img src={hospitalHallwayCctv} alt="" className="w-full h-full object-cover opacity-60 brightness-50" />
+                          <div className="flex h-full w-full items-center justify-center bg-slate-900 text-[9px] font-bold text-slate-500">LIVE</div>
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-white font-bold text-sm leading-tight cursor-pointer hover:underline truncate" onClick={() => setSelectedIncident(evt)}>{evt.type} 감지</p>
@@ -357,6 +377,25 @@ export function NurseDashboard({ username, userType, onLogout, inquiries, onAddI
                   <Flame className="w-4 h-4 fill-white/20" />
                   비상 출동
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* ===== MONITORING VIEW ===== */}
+          {activeMenu === 'monitoring' && (
+            <div className="flex-1 p-6 space-y-4 overflow-y-auto">
+              <h2 className="text-sm font-bold text-white">실시간 고정형 관제 뷰</h2>
+              <p className="text-xs text-slate-400">병실 내 카메라의 프레임 조절 및 구역별 오버레이 세부 설정이 가능합니다.</p>
+              <div className="h-[400px] border border-slate-800 rounded-2xl bg-black overflow-hidden relative flex items-center justify-center">
+                <LiveCameraGrid cameras={liveCameras} className="absolute inset-0 p-4" />
+                <div className="absolute top-4 left-4 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-lg flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                  <span className="text-xs font-bold text-white">복도 A — 실시간 분석 채널 2</span>
+                </div>
+                <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 400">
+                  <polygon points="100,200 300,180 350,300 120,320" fill="none" stroke="#3b82f6" strokeWidth="2" strokeDasharray="5 5" />
+                  <text x="180" y="240" fill="#3b82f6" fontSize="10" fontWeight="bold">낙상 예방 집중구역</text>
+                </svg>
               </div>
             </div>
           )}
@@ -498,7 +537,7 @@ export function NurseDashboard({ username, userType, onLogout, inquiries, onAddI
                   {registeredCameras.map(cam => (
                     <div key={cam.id} className="bg-[#111827] border border-slate-800 rounded-xl overflow-hidden group">
                       <div className="relative aspect-video">
-                        <img src={hospitalHallwayCctv} alt={cam.name} className="w-full h-full object-cover opacity-75 brightness-75" />
+                        <img src={liveCameras.find(feed => feed.name === cam.id)?.streamUrl || liveCameras[0].streamUrl} alt={cam.name} className="w-full h-full object-cover opacity-75 brightness-75" />
                         <div className="absolute top-2 left-2 flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
                           <span className="text-[9px] text-rose-400 font-bold">LIVE</span>
@@ -1054,7 +1093,7 @@ export function NurseDashboard({ username, userType, onLogout, inquiries, onAddI
               <button onClick={() => setSelectedIncident(null)} className="text-xs font-bold text-slate-400 hover:text-white px-2 py-1 rounded bg-[#020817] border border-slate-800 cursor-pointer">닫기</button>
             </div>
             <div className="relative aspect-video bg-black overflow-hidden">
-              <img src={hospitalHallwayCctv} alt="Playback" className="w-full h-full object-cover contrast-125 brightness-75" />
+              <img src={liveCameras[0].streamUrl} alt="Playback stream" className="w-full h-full object-cover contrast-125 brightness-75" />
               <div className="absolute top-1/3 left-1/3 w-1/3 h-1/3 border-2 border-rose-500 rounded bg-rose-500/5 flex flex-col justify-between p-2">
                 <span className="text-[9px] font-bold text-white bg-rose-600 px-1.5 rounded uppercase self-start">{selectedIncident.type}</span>
                 <span className="text-[10px] text-rose-400 font-extrabold text-center animate-pulse">이상 거동 감지 (CRITICAL)</span>
