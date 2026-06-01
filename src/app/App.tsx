@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Toaster, toast } from 'sonner';
-import { LoginPage } from './pages/LoginPage';
-import { PersonalSignUp } from './pages/PersonalSignUp';
-import { CorporateSignUp } from './pages/CorporateSignUp';
-import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
-import { NurseDashboard } from './pages/NurseDashboard';
-import { IntegratedDashboard } from './pages/IntegratedDashboard';
-import type { Inquiry } from './types/inquiry';
+import { LoginPage } from '../features/auth/pages/LoginPage';
+import { ForgotPasswordPage } from '../features/auth/pages/ForgotPasswordPage';
+import { PersonalSignUp } from '../features/signup/pages/PersonalSignUp';
+import { CorporateSignUp } from '../features/signup/pages/CorporateSignUp';
+import { NurseDashboard } from '../features/dashboard/pages/NurseDashboard';
+import { IntegratedDashboard } from '../features/dashboard/pages/IntegratedDashboard';
+import type { Inquiry } from '../shared/types/inquiry';
 
 type ViewType = 'login' | 'personalSignUp' | 'corporateSignUp' | 'forgotPassword' | 'userDashboard' | 'adminDashboard';
 type UserType = 'individual' | 'corporate';

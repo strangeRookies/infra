@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "../../../shared/components/ui/badge";
 import {
   Card,
   CardAction,
@@ -6,7 +6,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "../../../shared/components/ui/card";
 import { Camera, ShieldAlert, Brain, Timer, TrendingUp, Bell } from "lucide-react";
 
 interface CCTVStatsCardsProps {

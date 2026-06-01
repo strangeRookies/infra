@@ -9,8 +9,8 @@ import { LiveCameraGrid } from '../components/LiveCameraGrid';
 import { LIVE_CAMERAS } from '../data/cameras';
 import { useLiveCameras } from '../hooks/useLiveCameras';
 import { CCTVStatsCards } from '../components/CCTVStatsCards';
-import hospitalHallwayCctv from '../../imports/hospital_hallway_cctv.png';
-import type { Inquiry } from '../types/inquiry';
+import hospitalHallwayCctv from '../../../assets/hospital_hallway_cctv.png';
+import type { Inquiry } from '../../../shared/types/inquiry';
 
 interface NurseDashboardProps {
   username: string;

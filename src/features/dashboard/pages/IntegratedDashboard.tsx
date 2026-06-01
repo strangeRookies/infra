@@ -11,8 +11,8 @@ import { LiveCameraGrid } from '../components/LiveCameraGrid';
 import { useLiveCameras } from '../hooks/useLiveCameras';
 import { CCTVStatsCards } from '../components/CCTVStatsCards';
 import { CCTVRegistration } from '../components/CCTVRegistration';
-import hospitalHallwayCctv from '../../imports/hospital_hallway_cctv.png';
-import type { Inquiry } from '../types/inquiry';
+import hospitalHallwayCctv from '../../../assets/hospital_hallway_cctv.png';
+import type { Inquiry } from '../../../shared/types/inquiry';
 
 interface IntegratedDashboardProps {
   onLogout: () => void;
