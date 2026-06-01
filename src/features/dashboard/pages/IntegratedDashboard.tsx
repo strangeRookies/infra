@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { 
+import {
   Shield, 
   Bell, 
   ChevronDown, 
@@ -24,7 +24,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { CCTVFloorPlan } from '../components/CCTVFloorPlan';
-import hospitalHallwayCctv from '../../imports/hospital_hallway_cctv.png';
+import hospitalHallwayCctv from '../../../assets/hospital_hallway_cctv.png';
 
 interface IntegratedDashboardProps {
   onLogout: () => void;

@@ -22,7 +22,7 @@ import {
   FileText,
   RotateCcw
 } from 'lucide-react';
-import hospitalHallwayCctv from '../../imports/hospital_hallway_cctv.png';
+import hospitalHallwayCctv from '../../../assets/hospital_hallway_cctv.png';
 
 interface NurseDashboardProps {
   username: string;
