@@ -65,60 +65,85 @@ export function LoginPage({ onLogin, onNavigateToSignUp, onNavigateToForgotPassw
             </div>
           </div>
 
-          {/* Isometric CCTV SVG Room Illustration */}
+          {/* AI safety analysis illustration */}
           <div className="relative w-full aspect-[4/3] rounded-2xl border border-slate-800/80 bg-[#0a1122]/60 overflow-hidden flex items-center justify-center shadow-2xl p-4">
             {/* Grid pattern overlay */}
             <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:30px_30px] opacity-15" />
             
             <svg className="w-full h-full max-h-[300px] drop-shadow-[0_10px_20px_rgba(30,58,138,0.2)]" viewBox="0 0 400 300" fill="none">
-              {/* Isometric grid representation (SVG polygon walls & rooms) */}
-              <g transform="translate(40, -10)">
-                {/* Outermost floor border */}
-                <polygon points="160,80 300,150 160,220 20,150" fill="#0c1830" stroke="#1e3a8a" strokeWidth="1.5" opacity="0.6" />
-                
-                {/* Rooms divides */}
-                {/* Room 1 (Left) */}
-                <polygon points="160,80 230,115 160,150 90,115" fill="#0f2042" stroke="#2563eb" strokeWidth="1" opacity="0.8" />
-                {/* Room 2 (Right) */}
-                <polygon points="230,115 300,150 230,185 160,150" fill="#0f2042" stroke="#2563eb" strokeWidth="1" opacity="0.8" />
-                {/* Corridor (Front-left) */}
-                <polygon points="90,115 160,150 90,185 20,150" fill="#0d1b38" stroke="#1d4ed8" strokeWidth="1" opacity="0.8" />
-                {/* Room 3 (Front-right) */}
-                <polygon points="160,150 230,185 160,220 90,185" fill="#0f2042" stroke="#2563eb" strokeWidth="1" opacity="0.8" />
-
-                {/* Animated light pulses / CCTV cones */}
-                {/* Camera 5 representation */}
-                <circle cx="230" cy="185" r="5" fill="#10b981" className="animate-pulse" />
-                <polygon points="230,185 200,210 250,210" fill="url(#green-glow)" opacity="0.25" />
-
-                {/* Camera 2 Alert representation */}
-                <circle cx="160" cy="150" r="5" fill="#ef4444" className="animate-ping" style={{ animationDuration: '1.5s' }} />
-                <circle cx="160" cy="150" r="5" fill="#ef4444" />
-                <polygon points="160,150 130,100 190,100" fill="url(#red-glow)" opacity="0.3" />
-              </g>
-
-              {/* Define gradients for isometric camera cones */}
               <defs>
-                <linearGradient id="green-glow" x1="230" y1="185" x2="230" y2="210" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#10b981" stopOpacity="1" />
-                  <stop offset="1" stopColor="#10b981" stopOpacity="0" />
-                </linearGradient>
-                <linearGradient id="red-glow" x1="160" y1="150" x2="160" y2="100" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#ef4444" stopOpacity="1" />
+                <radialGradient id="alert-radar" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(204 154) rotate(90) scale(78)">
+                  <stop stopColor="#ef4444" stopOpacity="0.32" />
                   <stop offset="1" stopColor="#ef4444" stopOpacity="0" />
+                </radialGradient>
+                <linearGradient id="scan-glow" x1="0" y1="0" x2="0" y2="1">
+                  <stop stopColor="#38bdf8" stopOpacity="0" />
+                  <stop offset="0.5" stopColor="#38bdf8" stopOpacity="0.9" />
+                  <stop offset="1" stopColor="#38bdf8" stopOpacity="0" />
+                </linearGradient>
+                <linearGradient id="camera-cone" x1="65" y1="50" x2="210" y2="156" gradientUnits="userSpaceOnUse">
+                  <stop stopColor="#3b82f6" stopOpacity="0.45" />
+                  <stop offset="1" stopColor="#3b82f6" stopOpacity="0" />
                 </linearGradient>
               </defs>
+
+              {/* CCTV analysis frame */}
+              <rect x="56" y="38" width="288" height="218" rx="18" fill="#07101f" stroke="#1e3a8a" strokeWidth="1.5" opacity="0.9" />
+              <rect x="76" y="58" width="248" height="178" rx="10" fill="#081426" stroke="#1e293b" strokeWidth="1" />
+              <path d="M76 112H324M76 170H324M138 58V236M200 58V236M262 58V236" stroke="#1e293b" strokeWidth="0.8" opacity="0.45" />
+
+              {/* Camera coverage and safe zone nodes */}
+              <path d="M87 70L204 154L126 218Z" fill="url(#camera-cone)" />
+              <circle cx="87" cy="70" r="5" fill="#3b82f6" className="animate-pulse" />
+              <path d="M87 70h18l8 8" stroke="#93c5fd" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="296" cy="88" r="4" fill="#10b981" className="animate-pulse" />
+              <circle cx="296" cy="88" r="13" stroke="#10b981" strokeWidth="1" opacity="0.25" />
+              <circle cx="112" cy="214" r="4" fill="#10b981" />
+              <circle cx="112" cy="214" r="12" stroke="#10b981" strokeWidth="1" opacity="0.2" />
+
+              {/* AI fall detection target */}
+              <circle cx="204" cy="154" r="78" fill="url(#alert-radar)" className="animate-pulse" />
+              <circle cx="204" cy="154" r="46" fill="#ef4444" opacity="0.12" className="animate-ping" style={{ transformOrigin: '204px 154px', animationDuration: '2.4s' }} />
+              <rect x="134" y="94" width="150" height="112" rx="8" stroke="#fb7185" strokeWidth="2" strokeDasharray="7 5" fill="#ef4444" opacity="0.04" />
+              <path d="M134 113V94h22M262 94h22v19M284 187v19h-22M156 206h-22v-19" stroke="#fda4af" strokeWidth="2.5" strokeLinecap="round" />
+
+              {/* Pose/keypoint skeleton in alert posture */}
+              <g strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="178" cy="138" r="10" fill="#e2e8f0" stroke="#f8fafc" strokeWidth="2" />
+                <path d="M188 145L224 162" stroke="#e2e8f0" strokeWidth="6" />
+                <path d="M205 153L181 174M206 153L232 136" stroke="#38bdf8" strokeWidth="4" />
+                <path d="M224 162L250 181M223 162L207 196" stroke="#38bdf8" strokeWidth="4" />
+                <circle cx="205" cy="153" r="4" fill="#38bdf8" />
+                <circle cx="181" cy="174" r="4" fill="#38bdf8" />
+                <circle cx="232" cy="136" r="4" fill="#38bdf8" />
+                <circle cx="250" cy="181" r="4" fill="#fb7185" />
+                <circle cx="207" cy="196" r="4" fill="#fb7185" />
+              </g>
+
+              {/* Moving AI scan line */}
+              <rect x="76" y="72" width="248" height="22" fill="url(#scan-glow)" opacity="0.35">
+                <animate attributeName="y" values="62;214;62" dur="3.4s" repeatCount="indefinite" />
+              </rect>
+              <line x1="84" y1="83" x2="316" y2="83" stroke="#7dd3fc" strokeWidth="1.5" opacity="0.9">
+                <animate attributeName="y1" values="73;225;73" dur="3.4s" repeatCount="indefinite" />
+                <animate attributeName="y2" values="73;225;73" dur="3.4s" repeatCount="indefinite" />
+              </line>
+
+              {/* Analysis metrics */}
+              <g transform="translate(92 226)">
+                <rect x="0" y="0" width="78" height="18" rx="5" fill="#0f172a" stroke="#1e293b" />
+                <rect x="7" y="7" width="42" height="4" rx="2" fill="#38bdf8" opacity="0.75" />
+                <rect x="54" y="7" width="13" height="4" rx="2" fill="#22c55e" opacity="0.75" />
+              </g>
             </svg>
 
-            {/* Overlays matching the photos */}
             {/* LIVE CCTV stream card (Top-Left) */}
             <div className="absolute top-4 left-4 bg-slate-900/90 border border-slate-800 rounded-lg p-1.5 shadow-lg max-w-[120px] scale-90 sm:scale-100 origin-top-left flex flex-col gap-1 z-10">
               <div className="relative aspect-video rounded overflow-hidden bg-slate-950 flex items-center justify-center border border-slate-800">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 absolute top-1 left-1 animate-ping" />
-                <span className="text-[7px] text-rose-500 font-bold absolute top-0.5 left-3">LIVE</span>
-                {/* Minimal camera grid indicator */}
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 absolute top-1 left-1 animate-ping" />
+                <span className="text-[7px] text-blue-400 font-bold absolute top-0.5 left-3">AI</span>
                 <div className="w-full h-full flex flex-col items-center justify-center opacity-40">
-                  <span className="text-[9px] text-slate-400 font-mono">복도 A</span>
+                  <span className="text-[9px] text-slate-400 font-mono">분석 중</span>
                 </div>
               </div>
             </div>
@@ -127,17 +152,17 @@ export function LoginPage({ onLogin, onNavigateToSignUp, onNavigateToForgotPassw
             <div className="absolute top-4 right-4 bg-rose-950/70 border border-rose-500/50 rounded-lg p-2 shadow-lg scale-90 sm:scale-100 origin-top-right flex flex-col gap-0.5 max-w-[140px] backdrop-blur-sm z-10 animate-bounce">
               <div className="flex items-center gap-1.5 text-rose-400">
                 <Bell className="w-3.5 h-3.5 fill-rose-500/20" />
-                <span className="text-[10px] font-extrabold tracking-wide">FALL 감지</span>
+                <span className="text-[10px] font-extrabold tracking-wide">낙상 위험 감지</span>
               </div>
-              <p className="text-[8px] text-slate-300 font-medium">13:02:15 | 복도 A</p>
+              <p className="text-[8px] text-slate-300 font-medium">13:02:15 | CCTV-02</p>
             </div>
 
             {/* Normal CCTV Sensor status overlay (Bottom-Right) */}
             <div className="absolute bottom-4 right-4 bg-slate-900/85 border border-slate-800 rounded-lg py-1.5 px-3 shadow-lg scale-90 sm:scale-100 origin-bottom-right flex items-center gap-2 z-10">
               <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
               <div className="text-left">
-                <p className="text-[10px] font-extrabold text-white leading-none">CCTV 5</p>
-                <p className="text-[8px] text-emerald-400 font-semibold mt-0.5">정상 작동 중</p>
+                <p className="text-[10px] font-extrabold text-white leading-none">AI 분석 중</p>
+                <p className="text-[8px] text-emerald-400 font-semibold mt-0.5">실시간 관제 연결</p>
               </div>
             </div>
           </div>
@@ -239,7 +264,7 @@ export function LoginPage({ onLogin, onNavigateToSignUp, onNavigateToForgotPassw
               </div>
 
               {/* Remembers & Find */}
-              <div className="flex items-center justify-between text-xs pt-1">
+              <div className="flex items-center justify-between text-[10px] pt-1">
                 <label className="flex items-center gap-2 text-slate-400 hover:text-slate-300 cursor-pointer select-none">
                   <input
                     type="checkbox"
