@@ -1,31 +1,47 @@
 package com.strange.safety.auth.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.strange.safety.auth.entity.Role;
+import com.strange.safety.common.exception.CustomException;
+import com.strange.safety.common.exception.ErrorCode;
+import com.strange.safety.common.response.ApiResponse;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
+import java.io.IOException;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.io.IOException;
-
 @Component
-@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final ObjectMapper objectMapper;
+
+    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, ObjectMapper objectMapper) {
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.objectMapper = objectMapper;
+    }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
-                                    FilterChain chain) throws IOException, ServletException {
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain chain
+    ) throws IOException, ServletException {
         String token = resolveToken(request);
-        if (token != null && jwtTokenProvider.validateToken(token)) {
+        if (!StringUtils.hasText(token)) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        try {
             Claims claims = jwtTokenProvider.parseClaims(token);
             Long userId = Long.parseLong(claims.getSubject());
             String email = claims.get("email", String.class);
@@ -33,10 +49,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             CustomUserDetails userDetails = new CustomUserDetails(userId, email, role);
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                    userDetails, null, userDetails.getAuthorities());
+                    userDetails,
+                    null,
+                    userDetails.getAuthorities()
+            );
             SecurityContextHolder.getContext().setAuthentication(auth);
+            chain.doFilter(request, response);
+        } catch (CustomException exception) {
+            SecurityContextHolder.clearContext();
+            writeError(response, exception.getErrorCode());
         }
-        chain.doFilter(request, response);
     }
 
     private String resolveToken(HttpServletRequest request) {
@@ -45,5 +67,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return bearer.substring(7);
         }
         return null;
+    }
+
+    private void writeError(HttpServletResponse response, ErrorCode errorCode) throws IOException {
+        response.setStatus(errorCode.getStatus().value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
+        objectMapper.writeValue(response.getWriter(), ApiResponse.error(errorCode.getCode(), errorCode.getMessage()));
     }
 }

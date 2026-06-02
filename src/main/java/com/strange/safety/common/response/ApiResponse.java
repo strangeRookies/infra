@@ -1,26 +1,31 @@
 package com.strange.safety.common.response;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
-@Getter
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
-public class ApiResponse<T> {
-
-    private final boolean success;
-    private final String message;
-    private final T data;
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public record ApiResponse<T>(
+        boolean success,
+        String message,
+        T data,
+        ErrorDetail error
+) {
 
     public static <T> ApiResponse<T> success(T data) {
-        return new ApiResponse<>(true, "SUCCESS", data);
+        return new ApiResponse<>(true, "요청이 성공했습니다.", data, null);
     }
 
     public static <T> ApiResponse<T> success(String message, T data) {
-        return new ApiResponse<>(true, message, data);
+        return new ApiResponse<>(true, message, data, null);
     }
 
     public static ApiResponse<Void> error(String message) {
-        return new ApiResponse<>(false, message, null);
+        return new ApiResponse<>(false, null, null, new ErrorDetail(null, message));
+    }
+
+    public static ApiResponse<Void> error(String code, String message) {
+        return new ApiResponse<>(false, null, null, new ErrorDetail(code, message));
+    }
+
+    public record ErrorDetail(String code, String message) {
     }
 }

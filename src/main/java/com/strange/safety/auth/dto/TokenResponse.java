@@ -1,19 +1,29 @@
 package com.strange.safety.auth.dto;
 
-import lombok.Builder;
-import lombok.Getter;
-
-@Getter
-@Builder
-public class TokenResponse {
-
-    private String accessToken;
-    private String tokenType;
+public record TokenResponse(
+        String tokenType,
+        String accessToken,
+        String refreshToken,
+        long accessTokenExpiresInMs,
+        long refreshTokenExpiresInMs
+) {
 
     public static TokenResponse of(String accessToken) {
-        return TokenResponse.builder()
-                .accessToken(accessToken)
-                .tokenType("Bearer")
-                .build();
+        return new TokenResponse("Bearer", accessToken, null, 0, 0);
+    }
+
+    public static TokenResponse bearer(
+            String accessToken,
+            String refreshToken,
+            long accessTokenExpiresInMs,
+            long refreshTokenExpiresInMs
+    ) {
+        return new TokenResponse(
+                "Bearer",
+                accessToken,
+                refreshToken,
+                accessTokenExpiresInMs,
+                refreshTokenExpiresInMs
+        );
     }
 }
