@@ -40,6 +40,13 @@ MQTT_TOPIC=safety/events
 MQTT_RECONNECT_DELAY_MS=5000
 SERVER_PORT=8080
 WEBSOCKET_ALLOWED_ORIGIN_PATTERNS=http://localhost:3000,http://localhost:5173
+DB_URL=jdbc:postgresql://localhost:5432/strange_safety
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+JPA_DDL_AUTO=none
+JWT_SECRET=local-development-jwt-secret-change-before-shared-use-32bytes
+JWT_ACCESS_TOKEN_EXPIRATION_MS=1800000
+JWT_REFRESH_TOKEN_EXPIRATION_MS=1209600000
 ```
 
 ### Run
@@ -83,6 +90,7 @@ MQTT topic: safety/events
 ### Security TODO
 
 - Add MQTT username/password, certificates, or ACLs before production deployment.
+- Replace local JWT and DB defaults with environment-managed production secrets.
 - Do not commit real passwords, API keys, certificates, or private broker credentials.
 
 ### Scope
