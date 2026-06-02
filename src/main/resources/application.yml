@@ -3,17 +3,19 @@ spring:
     name: strange-back
 
   datasource:
-    url: ${DB_URL:jdbc:h2:mem:safetydb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MySQL}
-    driver-class-name: ${DB_DRIVER:org.h2.Driver}
-    username: ${DB_USERNAME:sa}
-    password: ${DB_PASSWORD:}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/test}
+    driver-class-name: ${DB_DRIVER:org.postgresql.Driver}
+    username: ${DB_USERNAME:test}
+    password: ${DB_PASSWORD:1234}
 
   jpa:
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:update}
     properties:
       hibernate:
-        format_sql: false
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        show-sql: true
+        format_sql: true
         jdbc:
           time_zone: UTC
     open-in-view: false
@@ -41,7 +43,7 @@ app:
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
   aes:
     secret-key: ${AES_SECRET_KEY:StrangeSafetyKey}
-    iv: ${AES_IV:StrangeSafetyIvec}
+    iv: ${AES_IV:StrangeSafetyIv!}
 
 logging:
   level:

@@ -34,7 +34,7 @@ dependencies {
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 
     // DB: MariaDB (운영), H2 (로컬 기본값 - DB_URL 환경변수로 MariaDB 전환)
-    runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
+    runtimeOnly 'org.postgresql:postgresql'
     runtimeOnly 'com.h2database:h2'
 
     // Lombok
