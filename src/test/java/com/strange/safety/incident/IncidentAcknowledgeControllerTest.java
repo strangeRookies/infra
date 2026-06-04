@@ -72,4 +72,25 @@ class IncidentAcknowledgeControllerTest {
                         .content(payload))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void acknowledgeAndRecordRejectsMissingEventId() throws Exception {
+        String payload = """
+                {
+                  "cameraId": "camera-1",
+                  "eventType": "Faint",
+                  "eventTimestamp": "2026-06-04T03:00:00Z",
+                  "preFrames": 150,
+                  "postFrames": 150,
+                  "totalFrames": 300,
+                  "status": "acknowledged",
+                  "reason": "acknowledged"
+                }
+                """;
+
+        mockMvc.perform(post("/api/incidents/{eventId}/acknowledge-and-record", "event-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest());
+    }
 }
