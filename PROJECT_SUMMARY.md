@@ -70,6 +70,33 @@ Subscribe topic: /topic/alerts
 MQTT topic: safety/events
 ```
 
+### Incident Acknowledge And Recording Request Contract
+
+Frontend Confirm on an AI danger alert calls:
+
+```text
+POST /api/incidents/{eventId}/acknowledge-and-record
+```
+
+Request body:
+
+```json
+{
+  "eventId": "camera-1:Faint:1780550000:7",
+  "cameraId": "camera-1",
+  "eventType": "Faint",
+  "eventTimestamp": "2026-06-04T03:00:00Z",
+  "preFrames": 150,
+  "postFrames": 150,
+  "totalFrames": 300,
+  "status": "acknowledged",
+  "reason": "acknowledged",
+  "acknowledgedBy": "safety-user"
+}
+```
+
+The backend persists an acknowledgment/recording request with `recordingStatus=RECORDING_REQUESTED`. It intentionally does not create a fake clip URL or fake video path. Actual 300-frame AI ring-buffer clip capture remains a later AI service integration.
+
 ### Manual Verification
 
 1. Start Mosquitto from `strange_infra`.
