@@ -15,3 +15,7 @@ dex.md
 PROJECT_SUMMARY.md
 
 docs/
+
+# Docker
+postgres_data/
+docker-compose.yml
