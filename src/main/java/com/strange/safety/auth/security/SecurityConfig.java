@@ -39,9 +39,14 @@ public class SecurityConfig {
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers(
-                                "/api/auth/signup",
+                                "/api/auth/signup/individual",
+                                "/api/auth/signup/corporate",
                                 "/api/auth/login",
-                                "/api/auth/reissue"
+                                "/api/auth/reissue",
+                                "/api/auth/verifications/sms",
+                                "/api/auth/verifications/sms/confirm",
+                                "/api/auth/email-availability",
+                                "/api/companies/business-number-availability"
                         ).permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

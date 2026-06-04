@@ -1,33 +1,51 @@
 package com.strange.safety.auth.controller;
 
-import com.strange.safety.auth.dto.LoginRequest;
-import com.strange.safety.auth.dto.LogoutRequest;
-import com.strange.safety.auth.dto.SignupRequest;
-import com.strange.safety.auth.dto.TokenReissueRequest;
-import com.strange.safety.auth.dto.TokenResponse;
+import com.strange.safety.auth.dto.*;
 import com.strange.safety.auth.service.AuthService;
+import com.strange.safety.auth.service.SignupService;
+import com.strange.safety.auth.service.SmsVerificationService;
 import com.strange.safety.common.response.ApiResponse;
-import com.strange.safety.user.dto.UserResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping({"/api/auth"})
+@RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
+    private final SignupService signupService;
+    private final SmsVerificationService smsVerificationService;
 
-    @PostMapping("/signup")
+    @PostMapping("/signup/individual")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<UserResponse> signup(@Valid @RequestBody SignupRequest request) {
-        return ApiResponse.success("회원가입이 완료되었습니다.", authService.signup(request));
+    public ApiResponse<SignupResponse> signupIndividual(@Valid @RequestBody IndividualSignupRequest request) {
+        return ApiResponse.success("개인 회원가입이 완료되었습니다.", signupService.signupIndividual(request));
+    }
+
+    @PostMapping("/signup/corporate")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<SignupResponse> signupCorporate(@Valid @RequestBody CorporateSignupRequest request) {
+        return ApiResponse.success("기업 회원가입이 완료되었습니다.", signupService.signupCorporate(request));
+    }
+
+    @PostMapping("/verifications/sms")
+    public ApiResponse<SmsVerificationResponse> sendSms(@Valid @RequestBody SmsVerificationRequest request) {
+        return ApiResponse.success("인증번호가 발급되었습니다.", smsVerificationService.send(request));
+    }
+
+    @PostMapping("/verifications/sms/confirm")
+    public ApiResponse<SmsVerificationConfirmResponse> confirmSms(
+            @Valid @RequestBody SmsVerificationConfirmRequest request
+    ) {
+        return ApiResponse.success("휴대폰 인증이 완료되었습니다.", smsVerificationService.confirm(request));
+    }
+
+    @GetMapping("/email-availability")
+    public ApiResponse<AvailabilityResponse> emailAvailability(@RequestParam String email) {
+        return ApiResponse.success(signupService.emailAvailability(email));
     }
 
     @PostMapping("/login")

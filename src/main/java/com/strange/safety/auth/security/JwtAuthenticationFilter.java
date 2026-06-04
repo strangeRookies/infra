@@ -1,7 +1,6 @@
 package com.strange.safety.auth.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.strange.safety.auth.entity.Role;
 import com.strange.safety.common.exception.CustomException;
 import com.strange.safety.common.exception.ErrorCode;
 import com.strange.safety.common.response.ApiResponse;
@@ -23,10 +22,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final ObjectMapper objectMapper;
+    private final CustomUserDetailsService customUserDetailsService;
 
-    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, ObjectMapper objectMapper) {
+    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, ObjectMapper objectMapper,
+                                   CustomUserDetailsService customUserDetailsService) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.objectMapper = objectMapper;
+        this.customUserDetailsService = customUserDetailsService;
     }
 
     @Override
@@ -44,10 +46,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             Claims claims = jwtTokenProvider.parseClaims(token);
             Long userId = Long.parseLong(claims.getSubject());
-            String email = claims.get("email", String.class);
-            Role role = Role.valueOf(claims.get("role", String.class));
-
-            CustomUserDetails userDetails = new CustomUserDetails(userId, email, role);
+            CustomUserDetails userDetails = customUserDetailsService.loadByUserId(userId);
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                     userDetails,
                     null,

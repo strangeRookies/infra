@@ -8,17 +8,17 @@ import static org.mockito.Mockito.when;
 
 import com.strange.safety.auth.dto.LoginRequest;
 import com.strange.safety.auth.dto.LogoutRequest;
-import com.strange.safety.auth.dto.SignupRequest;
 import com.strange.safety.auth.dto.TokenReissueRequest;
 import com.strange.safety.auth.dto.TokenResponse;
 import com.strange.safety.auth.entity.RefreshToken;
+import com.strange.safety.auth.entity.Role;
 import com.strange.safety.auth.repository.RefreshTokenRepository;
 import com.strange.safety.auth.security.JwtTokenProvider;
 import com.strange.safety.auth.security.RefreshTokenHasher;
 import com.strange.safety.common.exception.CustomException;
 import com.strange.safety.common.exception.ErrorCode;
-import com.strange.safety.user.dto.UserResponse;
 import com.strange.safety.user.entity.User;
+import com.strange.safety.user.entity.UserStatus;
 import com.strange.safety.user.repository.UserRepository;
 import java.time.Instant;
 import java.util.Optional;
@@ -67,46 +67,16 @@ class AuthServiceTest {
     }
 
     @Test
-    void signupCreatesUserWithEncodedPassword() {
-        SignupRequest request = new SignupRequest("TEST@EXAMPLE.COM", RAW_PASSWORD, "홍길동", "010-1234-5678");
-        when(userRepository.existsByEmail("test@example.com")).thenReturn(false);
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
-            User user = invocation.getArgument(0);
-            ReflectionTestUtils.setField(user, "id", 1L);
-            return user;
-        });
-
-        UserResponse response = authService.signup(request);
-
-        assertThat(response.userId()).isEqualTo(1L);
-        assertThat(response.email()).isEqualTo("test@example.com");
-        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(userCaptor.capture());
-        assertThat(passwordEncoder.matches(RAW_PASSWORD, userCaptor.getValue().getPasswordHash())).isTrue();
-    }
-
-    @Test
-    void signupFailsWhenEmailAlreadyExists() {
-        SignupRequest request = new SignupRequest("test@example.com", RAW_PASSWORD, "홍길동", null);
-        when(userRepository.existsByEmail("test@example.com")).thenReturn(true);
-
-        assertThatThrownBy(() -> authService.signup(request))
-                .isInstanceOf(CustomException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.USER_EMAIL_ALREADY_EXISTS);
-    }
-
-    @Test
     void loginIssuesTokens() {
         User user = user("test@example.com", passwordEncoder.encode(RAW_PASSWORD));
-        when(userRepository.findByEmailAndIsActiveTrue("test@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailAndStatus("test@example.com", UserStatus.ACTIVE)).thenReturn(Optional.of(user));
         when(jwtTokenProvider.createAccessToken(user)).thenReturn("access-token");
         when(jwtTokenProvider.createRefreshToken()).thenReturn(REFRESH_TOKEN);
         when(jwtTokenProvider.getAccessTokenExpirationMs()).thenReturn(1800000L);
         when(jwtTokenProvider.getRefreshTokenExpirationMs()).thenReturn(1209600000L);
         when(refreshTokenHasher.hash(REFRESH_TOKEN)).thenReturn(REFRESH_TOKEN_HASH);
 
-        TokenResponse response = authService.login(new LoginRequest("test@example.com", RAW_PASSWORD));
+        TokenResponse response = authService.login(new LoginRequest("test@example.com", RAW_PASSWORD, Role.INDIVIDUAL));
 
         assertThat(response.accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo(REFRESH_TOKEN);
@@ -116,12 +86,12 @@ class AuthServiceTest {
     @Test
     void loginFailsWithWrongPassword() {
         User user = user("test@example.com", passwordEncoder.encode(RAW_PASSWORD));
-        when(userRepository.findByEmailAndIsActiveTrue("test@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailAndStatus("test@example.com", UserStatus.ACTIVE)).thenReturn(Optional.of(user));
 
-        assertThatThrownBy(() -> authService.login(new LoginRequest("test@example.com", "wrong-password")))
+        assertThatThrownBy(() -> authService.login(new LoginRequest("test@example.com", "wrong-password", Role.INDIVIDUAL)))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
-                .isEqualTo(ErrorCode.AUTH_INVALID_PASSWORD);
+                .isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS);
     }
 
     @Test
@@ -160,7 +130,7 @@ class AuthServiceTest {
     }
 
     private User user(String email, String passwordHash) {
-        User user = User.create(email, passwordHash, "홍길동", null);
+        User user = User.create(email, passwordHash, "홍길동", null, Role.INDIVIDUAL);
         ReflectionTestUtils.setField(user, "id", 1L);
         return user;
     }

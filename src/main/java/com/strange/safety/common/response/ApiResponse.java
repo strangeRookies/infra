@@ -1,6 +1,7 @@
 package com.strange.safety.common.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import java.util.Map;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ApiResponse<T>(
@@ -11,7 +12,7 @@ public record ApiResponse<T>(
 ) {
 
     public static <T> ApiResponse<T> success(T data) {
-        return new ApiResponse<>(true, "요청이 성공했습니다.", data, null);
+        return new ApiResponse<>(true, "요청에 성공했습니다.", data, null);
     }
 
     public static <T> ApiResponse<T> success(String message, T data) {
@@ -19,13 +20,17 @@ public record ApiResponse<T>(
     }
 
     public static ApiResponse<Void> error(String message) {
-        return new ApiResponse<>(false, null, null, new ErrorDetail(null, message));
+        return error(null, message);
     }
 
     public static ApiResponse<Void> error(String code, String message) {
-        return new ApiResponse<>(false, null, null, new ErrorDetail(code, message));
+        return new ApiResponse<>(false, null, null, new ErrorDetail(code, message, null));
     }
 
-    public record ErrorDetail(String code, String message) {
+    public static ApiResponse<Void> validationError(String code, String message, Map<String, String> fieldErrors) {
+        return new ApiResponse<>(false, null, null, new ErrorDetail(code, message, fieldErrors));
+    }
+
+    public record ErrorDetail(String code, String message, Map<String, String> fieldErrors) {
     }
 }

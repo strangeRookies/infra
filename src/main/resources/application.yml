@@ -39,6 +39,9 @@ mqtt:
   reconnect-delay-ms: ${MQTT_RECONNECT_DELAY_MS:5000}
   initial-connect-delay-ms: ${MQTT_INITIAL_CONNECT_DELAY_MS:1000}
 
+sms:
+  local-verification-code: ${SMS_LOCAL_VERIFICATION_CODE:123456}
+
 app:
   websocket:
     allowed-origin-patterns: ${WEBSOCKET_ALLOWED_ORIGIN_PATTERNS:http://localhost:3000,http://localhost:5173}

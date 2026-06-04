@@ -7,11 +7,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.strange.safety.auth.dto.SignupRequest;
-import com.strange.safety.auth.service.AuthService;
+import com.strange.safety.auth.dto.LoginRequest;
+import com.strange.safety.auth.dto.TokenResponse;
 import com.strange.safety.auth.entity.Role;
+import com.strange.safety.auth.service.AuthService;
+import com.strange.safety.auth.service.SignupService;
+import com.strange.safety.auth.service.SmsVerificationService;
 import com.strange.safety.common.exception.GlobalExceptionHandler;
-import com.strange.safety.user.dto.UserResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -27,33 +29,34 @@ class AuthControllerTest {
     @BeforeEach
     void setUp() {
         authService = org.mockito.Mockito.mock(AuthService.class);
+        SignupService signupService = org.mockito.Mockito.mock(SignupService.class);
+        SmsVerificationService smsVerificationService = org.mockito.Mockito.mock(SmsVerificationService.class);
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new AuthController(authService))
+                .standaloneSetup(new AuthController(authService, signupService, smsVerificationService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 
     @Test
-    void signupReturnsCommonSuccessResponse() throws Exception {
-        UserResponse response = new UserResponse(1L, "test@example.com", "홍길동", null, false, Role.USER);
-        when(authService.signup(any(SignupRequest.class))).thenReturn(response);
+    void loginReturnsCommonSuccessResponse() throws Exception {
+        when(authService.login(any(LoginRequest.class)))
+                .thenReturn(new TokenResponse("Bearer", "access", "refresh", 1800, null));
 
-        mockMvc.perform(post("/api/auth/signup")
+        mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new SignupRequest("test@example.com", "password123", "홍길동", null))))
-                .andExpect(status().isCreated())
+                                new LoginRequest("test@example.com", "password123", Role.INDIVIDUAL))))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.email").value("test@example.com"))
-                .andExpect(jsonPath("$.message").value("회원가입이 완료되었습니다."));
+                .andExpect(jsonPath("$.data.accessToken").value("access"))
+                .andExpect(jsonPath("$.data.expiresIn").value(1800));
     }
 
     @Test
-    void signupValidationFailureReturnsCommonErrorResponse() throws Exception {
-        mockMvc.perform(post("/api/auth/signup")
+    void loginValidationFailureReturnsCommonErrorResponse() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new SignupRequest("bad-email", "short", "", null))))
+                        .content("{\"email\":\"bad-email\",\"password\":\"\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("COMMON_INVALID_INPUT"));

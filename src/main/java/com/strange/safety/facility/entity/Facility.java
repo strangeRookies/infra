@@ -39,6 +39,9 @@ public class Facility extends BaseEntity {
     @Column(name = "address_detail")
     private String addressDetail;
 
+    @Column(length = 100)
+    private String district;
+
     @Column(name = "emergency_119_jurisdiction")
     private String emergency119Jurisdiction;
 
@@ -47,13 +50,15 @@ public class Facility extends BaseEntity {
 
     @Builder
     private Facility(CompanyProfile companyProfile, String facilityName, FacilityType facilityType,
-                     String postalCode, String address, String addressDetail, String emergency119Jurisdiction) {
+                     String postalCode, String address, String addressDetail, String district,
+                     String emergency119Jurisdiction) {
         this.companyProfile = companyProfile;
         this.facilityName = facilityName;
         this.facilityType = facilityType;
         this.postalCode = postalCode;
         this.address = address;
         this.addressDetail = addressDetail;
+        this.district = district;
         this.emergency119Jurisdiction = emergency119Jurisdiction;
         this.isActive = true;
     }

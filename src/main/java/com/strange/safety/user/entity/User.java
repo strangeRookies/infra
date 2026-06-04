@@ -45,27 +45,31 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 30)
     private Role role;
 
-    @Column(name = "is_active", nullable = false)
-    private boolean isActive = true;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private UserStatus status;
 
     @Builder
-    private User(String email, String passwordHash, String name, String phoneNumber, Role role) {
+    private User(String email, String passwordHash, String name, String phoneNumber,
+                 boolean phoneVerified, Role role, UserStatus status) {
         this.email = email;
         this.passwordHash = passwordHash;
         this.name = name;
         this.phoneNumber = phoneNumber;
-        this.phoneVerified = false;
-        this.role = role == null ? Role.USER : role;
-        this.isActive = true;
+        this.phoneVerified = phoneVerified;
+        this.role = role;
+        this.status = status == null ? UserStatus.ACTIVE : status;
     }
 
-    public static User create(String email, String passwordHash, String name, String phoneNumber) {
+    public static User create(String email, String passwordHash, String name, String phoneNumber, Role role) {
         return User.builder()
                 .email(email)
                 .passwordHash(passwordHash)
                 .name(name)
                 .phoneNumber(phoneNumber)
-                .role(Role.USER)
+                .phoneVerified(true)
+                .role(role)
+                .status(UserStatus.ACTIVE)
                 .build();
     }
 }

@@ -2,6 +2,7 @@ package com.strange.safety.user.dto;
 
 import com.strange.safety.auth.entity.Role;
 import com.strange.safety.user.entity.User;
+import com.strange.safety.user.entity.UserStatus;
 
 public record UserResponse(
         Long userId,
@@ -9,7 +10,8 @@ public record UserResponse(
         String name,
         String phoneNumber,
         boolean phoneVerified,
-        Role role
+        Role role,
+        UserStatus status
 ) {
 
     public static UserResponse from(User user) {
@@ -19,7 +21,8 @@ public record UserResponse(
                 user.getName(),
                 user.getPhoneNumber(),
                 user.isPhoneVerified(),
-                user.getRole()
+                user.getRole(),
+                user.getStatus()
         );
     }
 }

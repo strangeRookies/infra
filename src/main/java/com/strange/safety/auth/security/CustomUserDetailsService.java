@@ -3,6 +3,7 @@ package com.strange.safety.auth.security;
 import com.strange.safety.common.exception.CustomException;
 import com.strange.safety.common.exception.ErrorCode;
 import com.strange.safety.user.entity.User;
+import com.strange.safety.user.entity.UserStatus;
 import com.strange.safety.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -20,13 +21,13 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByEmailAndIsActiveTrue(username)
+        User user = userRepository.findByEmailAndStatus(username, UserStatus.ACTIVE)
                 .orElseThrow(() -> new UsernameNotFoundException(ErrorCode.USER_NOT_FOUND.getMessage()));
         return new CustomUserDetails(user.getId(), user.getEmail(), user.getRole());
     }
 
     public CustomUserDetails loadByUserId(Long userId) {
-        User user = userRepository.findByIdAndIsActiveTrue(userId)
+        User user = userRepository.findByIdAndStatus(userId, UserStatus.ACTIVE)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         return new CustomUserDetails(user.getId(), user.getEmail(), user.getRole());
     }

@@ -2,7 +2,6 @@ package com.strange.safety.auth.service;
 
 import com.strange.safety.auth.dto.LoginRequest;
 import com.strange.safety.auth.dto.LogoutRequest;
-import com.strange.safety.auth.dto.SignupRequest;
 import com.strange.safety.auth.dto.TokenReissueRequest;
 import com.strange.safety.auth.dto.TokenResponse;
 import com.strange.safety.auth.entity.RefreshToken;
@@ -11,8 +10,8 @@ import com.strange.safety.auth.security.JwtTokenProvider;
 import com.strange.safety.auth.security.RefreshTokenHasher;
 import com.strange.safety.common.exception.CustomException;
 import com.strange.safety.common.exception.ErrorCode;
-import com.strange.safety.user.dto.UserResponse;
 import com.strange.safety.user.entity.User;
+import com.strange.safety.user.entity.UserStatus;
 import com.strange.safety.user.repository.UserRepository;
 import java.time.Instant;
 import java.util.Locale;
@@ -20,7 +19,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -33,26 +31,12 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenHasher refreshTokenHasher;
 
-    public UserResponse signup(SignupRequest request) {
-        String email = normalizeEmail(request.email());
-        if (userRepository.existsByEmail(email)) {
-            throw new CustomException(ErrorCode.USER_EMAIL_ALREADY_EXISTS);
-        }
-
-        User user = User.create(
-                email,
-                passwordEncoder.encode(request.password()),
-                request.name().trim(),
-                normalizePhoneNumber(request.phoneNumber())
-        );
-        return UserResponse.from(userRepository.save(user));
-    }
-
     public TokenResponse login(LoginRequest request) {
-        User user = userRepository.findByEmailAndIsActiveTrue(normalizeEmail(request.email()))
-                .orElseThrow(() -> new CustomException(ErrorCode.AUTH_INVALID_PASSWORD));
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            throw new CustomException(ErrorCode.AUTH_INVALID_PASSWORD);
+        User user = userRepository.findByEmailAndStatus(normalizeEmail(request.email()), UserStatus.ACTIVE)
+                .orElseThrow(() -> new CustomException(ErrorCode.AUTH_INVALID_CREDENTIALS));
+        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())
+                || user.getRole() != request.accountType()) {
+            throw new CustomException(ErrorCode.AUTH_INVALID_CREDENTIALS);
         }
 
         return issueTokens(user);
@@ -64,6 +48,10 @@ public class AuthService {
         if (refreshToken.isRevoked() || refreshToken.isExpired(now)) {
             refreshToken.revoke();
             throw new CustomException(ErrorCode.AUTH_INVALID_TOKEN);
+        }
+        if (refreshToken.getUser().getStatus() != UserStatus.ACTIVE) {
+            refreshToken.revoke();
+            throw new CustomException(ErrorCode.AUTH_ACCESS_DENIED);
         }
 
         refreshToken.revoke();
@@ -89,7 +77,7 @@ public class AuthService {
                 accessToken,
                 refreshToken,
                 jwtTokenProvider.getAccessTokenExpirationMs(),
-                jwtTokenProvider.getRefreshTokenExpirationMs()
+                user
         );
     }
 
@@ -102,10 +90,4 @@ public class AuthService {
         return email.trim().toLowerCase(Locale.ROOT);
     }
 
-    private String normalizePhoneNumber(String phoneNumber) {
-        if (!StringUtils.hasText(phoneNumber)) {
-            return null;
-        }
-        return phoneNumber.trim();
-    }
 }
