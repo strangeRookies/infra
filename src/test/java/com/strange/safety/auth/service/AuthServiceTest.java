@@ -95,6 +95,30 @@ class AuthServiceTest {
     }
 
     @Test
+    void loginFailsWhenAccountTypeDoesNotMatchStoredRole() {
+        User user = user("test@example.com", passwordEncoder.encode(RAW_PASSWORD));
+        when(userRepository.findByEmailAndStatus("test@example.com", UserStatus.ACTIVE)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> authService.login(
+                new LoginRequest("test@example.com", RAW_PASSWORD, Role.CORPORATE)))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS);
+    }
+
+    @Test
+    void loginFailsWhenUserIsNotActive() {
+        when(userRepository.findByEmailAndStatus("test@example.com", UserStatus.ACTIVE))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.login(
+                new LoginRequest("test@example.com", RAW_PASSWORD, Role.INDIVIDUAL)))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS);
+    }
+
+    @Test
     void reissueRotatesRefreshToken() {
         User user = user("test@example.com", passwordEncoder.encode(RAW_PASSWORD));
         RefreshToken savedRefreshToken = RefreshToken.issue(user, REFRESH_TOKEN_HASH, Instant.now().plusSeconds(60));
@@ -111,6 +135,21 @@ class AuthServiceTest {
         assertThat(savedRefreshToken.isRevoked()).isTrue();
         assertThat(response.accessToken()).isEqualTo("new-access-token");
         assertThat(response.refreshToken()).isEqualTo("new-refresh-token");
+    }
+
+    @Test
+    void reissueFailsWhenUserIsNotActive() {
+        User user = user("test@example.com", passwordEncoder.encode(RAW_PASSWORD));
+        ReflectionTestUtils.setField(user, "status", UserStatus.SUSPENDED);
+        RefreshToken savedRefreshToken = RefreshToken.issue(user, REFRESH_TOKEN_HASH, Instant.now().plusSeconds(60));
+        when(refreshTokenHasher.hash(REFRESH_TOKEN)).thenReturn(REFRESH_TOKEN_HASH);
+        when(refreshTokenRepository.findByTokenHash(REFRESH_TOKEN_HASH)).thenReturn(Optional.of(savedRefreshToken));
+
+        assertThatThrownBy(() -> authService.reissue(new TokenReissueRequest(REFRESH_TOKEN)))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.AUTH_ACCESS_DENIED);
+        assertThat(savedRefreshToken.isRevoked()).isTrue();
     }
 
     @Test
