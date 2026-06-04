@@ -46,4 +46,10 @@ public class EmergencyContact extends BaseEntity {
         this.relationship = relationship;
         this.phoneNumber = phoneNumber;
     }
+
+    public void update(String name, String relationship, String phoneNumber) {
+        if (name != null) this.name = name;
+        if (relationship != null) this.relationship = relationship;
+        if (phoneNumber != null) this.phoneNumber = phoneNumber;
+    }
 }
