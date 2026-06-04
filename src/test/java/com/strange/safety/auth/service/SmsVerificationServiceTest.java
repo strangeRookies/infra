@@ -13,6 +13,8 @@ import com.strange.safety.auth.entity.VerificationPurpose;
 import com.strange.safety.auth.repository.SmsVerificationRepository;
 import com.strange.safety.auth.security.RefreshTokenHasher;
 import com.strange.safety.common.exception.CustomException;
+import com.strange.safety.common.exception.ErrorCode;
+import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,6 +62,55 @@ class SmsVerificationServiceTest {
         assertThat(confirmed.verified()).isTrue();
         assertThatThrownBy(() -> service.consume(
                 confirmed.verificationToken(), "01012345678", VerificationPurpose.SIGN_UP))
+                .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    void confirmFailsWhenCodeIsExpired() {
+        SmsVerification verification = SmsVerification.issue(
+                "01012345678", VerificationPurpose.SIGN_UP,
+                new BCryptPasswordEncoder().encode("123456"), Instant.now().minusSeconds(1));
+        when(repository.findById(1L)).thenReturn(Optional.of(verification));
+
+        assertThatThrownBy(() -> service.confirm(new SmsVerificationConfirmRequest(1L, "123456")))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.AUTH_INVALID_VERIFICATION);
+    }
+
+    @Test
+    void confirmFailsAfterFiveWrongAttempts() {
+        SmsVerification verification = SmsVerification.issue(
+                "01012345678", VerificationPurpose.SIGN_UP,
+                new BCryptPasswordEncoder().encode("123456"), Instant.now().plusSeconds(300));
+        when(repository.findById(1L)).thenReturn(Optional.of(verification));
+
+        for (int attempt = 0; attempt < 5; attempt++) {
+            assertThatThrownBy(() -> service.confirm(new SmsVerificationConfirmRequest(1L, "000000")))
+                    .isInstanceOf(CustomException.class);
+        }
+
+        assertThat(verification.getFailedAttempts()).isEqualTo(5);
+        assertThatThrownBy(() -> service.confirm(new SmsVerificationConfirmRequest(1L, "123456")))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.AUTH_INVALID_VERIFICATION);
+    }
+
+    @Test
+    void consumeFailsWhenPhoneOrPurposeDoesNotMatch() {
+        SmsVerification verification = SmsVerification.issue(
+                "01012345678", VerificationPurpose.SIGN_UP,
+                new BCryptPasswordEncoder().encode("123456"), Instant.now().plusSeconds(300));
+        verification.verify("token-hash", Instant.now().plusSeconds(900), Instant.now());
+        when(tokenHasher.hash("verified-token")).thenReturn("token-hash");
+        when(repository.findByVerificationTokenHash("token-hash")).thenReturn(Optional.of(verification));
+
+        assertThatThrownBy(() -> service.consume(
+                "verified-token", "01099998888", VerificationPurpose.SIGN_UP))
+                .isInstanceOf(CustomException.class);
+        assertThatThrownBy(() -> service.consume(
+                "verified-token", "01012345678", VerificationPurpose.RESET_PASSWORD))
                 .isInstanceOf(CustomException.class);
     }
 }
