@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+﻿import React, { useState, useCallback, useEffect } from 'react';
 import {
   Shield, Bell, ChevronDown, Folder, ChevronRight,
   Play, Pause, Volume2, Maximize2, Check,
@@ -13,9 +13,6 @@ import { CCTVStatsCards } from '../components/CCTVStatsCards';
 import { CCTVRegistration } from '../components/CCTVRegistration';
 import hospitalHallwayCctv from '../../imports/hospital_hallway_cctv.png';
 import type { Inquiry } from '../types/inquiry';
-import { useAiEvents } from '../../hooks/useAiEvents';
-import { AiAlertCard } from '../../components/dashboard/AiAlertCard';
-import { toast } from 'sonner';
 
 interface IntegratedDashboardProps {
   onLogout: () => void;
@@ -140,34 +137,6 @@ export function IntegratedDashboard({ onLogout, inquiries, onAddReply }: Integra
   const selectedAdminQna = inquiries.find(inq => inq.id === selectedAdminQnaId) ?? null;
   const unansweredCount = inquiries.filter(i => !i.reply).length;
   const answeredCount = inquiries.filter(i => i.reply).length;
-
-  const aiEvents = useAiEvents();
-  const [lastProcessedEventTime, setLastProcessedEventTime] = useState<number>(0);
-
-  useEffect(() => {
-    if (aiEvents.length > 0) {
-      const latest = aiEvents[0];
-      if (latest.event_type !== 'Normal' && latest.timestamp > lastProcessedEventTime) {
-        setLastProcessedEventTime(latest.timestamp);
-        toast.error(`[AI 감지] ${latest.event_type} 위협이 감지되었습니다!`, {
-          description: `카메라: ${latest.camera_id} (${(latest.confidence * 100).toFixed(1)}%)`,
-        });
-        
-        try {
-          const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.type = 'square';
-          osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
-          gain.gain.setValueAtTime(0.1, ctx.currentTime);
-          osc.start();
-          osc.stop(ctx.currentTime + 0.2);
-        } catch (e) {}
-      }
-    }
-  }, [aiEvents, lastProcessedEventTime]);
 
   useEffect(() => {
     if (selectedFloor === '1F') { setCameras(FLOOR_1_CAMERAS); setSelectedCamera(FLOOR_1_CAMERAS[1]); }
@@ -607,14 +576,23 @@ export function IntegratedDashboard({ onLogout, inquiries, onAddReply }: Integra
                </div>
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {aiEvents.filter(e => e.event_type !== 'Normal').length === 0 && (
+              {events.filter(e => e.status === 'new').length === 0 && (
                 <div className="h-full flex flex-col items-center justify-center text-slate-500 opacity-50">
                   <Shield className="w-8 h-8 mb-2" />
                   <p className="text-xs font-semibold">특이사항 없음</p>
                 </div>
               )}
-              {aiEvents.filter(e => e.event_type !== 'Normal').map((evt, idx) => (
-                <AiAlertCard key={`${evt.timestamp}-${idx}`} event={evt} />
+              {events.filter(e => e.status === 'new').map(evt => (
+                <div key={evt.id} className="bg-[#0f172a] rounded-xl p-3 flex items-center gap-3">
+                  <div className="w-12 h-12 bg-[#374151] rounded-lg flex-shrink-0 overflow-hidden">
+                    <div className="flex h-full w-full items-center justify-center bg-slate-900 text-[9px] font-bold text-slate-500">LIVE</div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-bold text-sm leading-tight truncate">{evt.type} 감지</p>
+                    <p className="text-[#cbd5e1] text-xs mt-0.5">{evt.time}</p>
+                  </div>
+                  <button onClick={() => handleResolveEvent(evt.id)} className={`${eventButtonStyle(evt.severity)} text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex-shrink-0 cursor-pointer`}>확인</button>
+                </div>
               ))}
             </div>
           </div>

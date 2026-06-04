@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Shield, Bell, Search, Video, Calendar, Clock, Play, Pause, Volume2,
   Download, AlertTriangle, Flame, Check, Tv, LogOut,
@@ -11,6 +11,18 @@ import { useLiveCameras } from '../hooks/useLiveCameras';
 import { CCTVStatsCards } from '../components/CCTVStatsCards';
 import hospitalHallwayCctv from '../../imports/hospital_hallway_cctv.png';
 import type { Inquiry } from '../types/inquiry';
+import { AiAlertCard } from '../../components/dashboard/AiAlertCard';
+import type { AiEvent } from '../../hooks/useAiEvents';
+import { useAiEvents } from '../../hooks/useAiEvents';
+import { useRepeatingAlarm } from '../../hooks/useRepeatingAlarm';
+import {
+  aiEventKey,
+  findCameraForAiEvent,
+  focusCameraFirst,
+  isAiAlertEnabledRoute,
+  isDangerAiEvent,
+  markAiDangerCameras,
+} from '../utils/aiAlerts';
 
 interface NurseDashboardProps {
   username: string;
@@ -119,8 +131,12 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
 
 export function NurseDashboard({ username, userType, onLogout, inquiries, onAddInquiry }: NurseDashboardProps) {
   const liveCameras = useLiveCameras();
+  const aiAlertsEnabled = isAiAlertEnabledRoute(userType === 'corporate' ? 'company' : 'personal');
+  const aiEvents = useAiEvents({ enabled: aiAlertsEnabled });
   const [activeMenu, setActiveMenu] = useState<MenuId>('home');
   const [alerts, setAlerts] = useState<IncidentAlert[]>(INITIAL_ALERTS);
+  const [acknowledgedAiEventIds, setAcknowledgedAiEventIds] = useState<Set<string>>(() => new Set());
+  const [focusedCameraId, setFocusedCameraId] = useState<string | null>(null);
 
   // History filters
   const [searchDate, setSearchDate]       = useState<'today' | 'week' | 'month'>('month');
@@ -169,9 +185,41 @@ export function NurseDashboard({ username, userType, onLogout, inquiries, onAddI
   const [qnaCategory, setQnaCategory]       = useState<InquiryCategory>('기타');
 
   const activeTenMinAlerts = alerts.filter(a => Date.now() - a.timestamp <= 10 * 60 * 1000);
+  const dangerAiEvents = useMemo(() => aiEvents.filter(isDangerAiEvent), [aiEvents]);
+  const unacknowledgedAiEvents = useMemo(
+    () => dangerAiEvents.filter(event => !acknowledgedAiEventIds.has(aiEventKey(event))),
+    [acknowledgedAiEventIds, dangerAiEvents],
+  );
+  const aiMarkedCameras = useMemo(
+    () => markAiDangerCameras(liveCameras, unacknowledgedAiEvents),
+    [liveCameras, unacknowledgedAiEvents],
+  );
+  const focusedLiveCameras = useMemo(
+    () => focusCameraFirst(aiMarkedCameras, focusedCameraId),
+    [aiMarkedCameras, focusedCameraId],
+  );
   const myInquiries  = inquiries.filter(inq => inq.username === username);
   const selectedQna  = myInquiries.find(inq => inq.id === selectedQnaId) ?? null;
   const pwStrength   = getPasswordStrength(newPw);
+
+  useRepeatingAlarm({ enabled: aiAlertsEnabled && unacknowledgedAiEvents.length > 0, intervalMs: 2000 });
+
+  const focusAiEventCamera = useCallback((event: AiEvent) => {
+    const camera = findCameraForAiEvent(liveCameras, event);
+    if (camera) {
+      setFocusedCameraId(camera.id);
+    }
+    setActiveMenu('home');
+  }, [liveCameras]);
+
+  const handleConfirmAiEvent = useCallback((event: AiEvent) => {
+    focusAiEventCamera(event);
+    setAcknowledgedAiEventIds(prev => {
+      const next = new Set(prev);
+      next.add(aiEventKey(event));
+      return next;
+    });
+  }, [focusAiEventCamera]);
 
   const handleResolveAlert = (id: string) =>
     setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: 'resolved' as const } : a));
@@ -318,8 +366,9 @@ export function NurseDashboard({ username, userType, onLogout, inquiries, onAddI
                   alertsCount={activeTenMinAlerts.length}
                 />
                 <LiveCameraGrid
-                  cameras={liveCameras}
+                  cameras={focusedLiveCameras}
                   onCameraClick={camera => {
+                    setFocusedCameraId(camera.id);
                     const event = alerts.find(alert => alert.camera === camera.location || alert.camera === camera.name);
                     if (event) setSelectedIncident(event);
                   }}
@@ -355,7 +404,22 @@ export function NurseDashboard({ username, userType, onLogout, inquiries, onAddI
                     <h3 className="text-base font-bold text-white">실시간 AI 위험 탐지</h3>
                   </div>
                   <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                    {alerts.slice(0, 5).map(evt => (
+                    {dangerAiEvents.map(event => (
+                      <AiAlertCard
+                        key={aiEventKey(event)}
+                        event={event}
+                        acknowledged={acknowledgedAiEventIds.has(aiEventKey(event))}
+                        onFocus={focusAiEventCamera}
+                        onConfirm={handleConfirmAiEvent}
+                      />
+                    ))}
+                    {dangerAiEvents.length === 0 && (
+                      <div className="py-8 text-center text-slate-500">
+                        <Shield className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-xs font-semibold">AI 위험 알림 없음</p>
+                      </div>
+                    )}
+                    {dangerAiEvents.length === 0 && alerts.slice(0, 5).map(evt => (
                       <div key={evt.id} className={`bg-[#0f172a] rounded-xl p-3 flex items-center gap-3 ${evt.status === 'resolved' ? 'opacity-50' : ''}`}>
                         <div className="w-12 h-12 bg-[#374151] rounded-lg flex-shrink-0 overflow-hidden">
                           <div className="flex h-full w-full items-center justify-center bg-slate-900 text-[9px] font-bold text-slate-500">LIVE</div>
@@ -387,7 +451,7 @@ export function NurseDashboard({ username, userType, onLogout, inquiries, onAddI
               <h2 className="text-sm font-bold text-white">실시간 고정형 관제 뷰</h2>
               <p className="text-xs text-slate-400">병실 내 카메라의 프레임 조절 및 구역별 오버레이 세부 설정이 가능합니다.</p>
               <div className="h-[400px] border border-slate-800 rounded-2xl bg-black overflow-hidden relative flex items-center justify-center">
-                <LiveCameraGrid cameras={liveCameras} className="absolute inset-0 p-4" />
+                <LiveCameraGrid cameras={focusedLiveCameras} className="absolute inset-0 p-4" onCameraClick={camera => setFocusedCameraId(camera.id)} />
                 <div className="absolute top-4 left-4 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-lg flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
                   <span className="text-xs font-bold text-white">복도 A — 실시간 분석 채널 2</span>
