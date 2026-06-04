@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+﻿import React, { useState, useCallback, useEffect } from 'react';
 import {
   Shield, Bell, ChevronDown, Folder, ChevronRight,
   Play, Pause, Volume2, Maximize2, Check,
@@ -84,12 +84,11 @@ const SPACES = [
   { id: 'community-center', label: '중구 주민센터', floors: [] },
 ];
 
-type MenuId = 'home' | 'monitoring' | 'alerts' | 'history' | 'qna' | 'settings' | 'cctvReg' | 'test';
+type MenuId = 'home' | 'alerts' | 'history' | 'qna' | 'settings' | 'cctvReg' | 'test';
 type InquiryCategory = Inquiry['category'];
 
 const MENU_ITEMS: { id: MenuId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'home',       label: '대시보드 홈',   icon: LayoutDashboard },
-  { id: 'monitoring', label: '실시간 모니터링', icon: Video           },
   { id: 'alerts',     label: '이벤트 알림',   icon: Bell            },
   { id: 'history',    label: '이벤트 기록',   icon: Calendar        },
   { id: 'qna',        label: '문의',         icon: HelpCircle      },
@@ -327,14 +326,7 @@ export function IntegratedDashboard({ onLogout, inquiries, onAddReply }: Integra
                   <div className="absolute top-2 left-2 bg-slate-900/90 border border-slate-800 rounded px-2 py-0.5 text-[10px] text-slate-300 font-mono">
                     CH-0{selectedCamera ? selectedCamera.id.replace('CCTV-', '') : '2'}
                   </div>
-                  {selectedCamera && (
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 640 360">
-                      <rect x="180" y="80" width="280" height="200" fill="none" stroke={selectedCamera.status === 'alert' ? '#ef4444' : '#10b981'} strokeWidth="1.5" strokeDasharray="3 3" />
-                      <text x="320" y="70" textAnchor="middle" fill={selectedCamera.status === 'alert' ? '#ef4444' : '#10b981'} fontSize="9" fontWeight="bold">
-                        {selectedCamera.status === 'alert' ? '위해 상황 감지 구역' : '안심 모니터링 구역'}
-                      </text>
-                    </svg>
-                  )}
+
                   <div className="absolute bottom-0 left-0 right-0 h-10 bg-slate-950/70 backdrop-blur px-4 flex items-center justify-between text-slate-400">
                     <div className="flex items-center gap-3">
                       <button onClick={() => setIsPlaying(!isPlaying)} className="hover:text-white transition-colors cursor-pointer">
@@ -377,28 +369,10 @@ export function IntegratedDashboard({ onLogout, inquiries, onAddReply }: Integra
                         <span className="text-[9px] text-rose-400 font-bold">LIVE</span>
                       </div>
                       <span className="absolute bottom-2 left-2 text-[10px] text-white font-bold bg-slate-900/80 px-2 py-0.5 rounded">{cam.name}</span>
-                      {cam.alert && (
-                        <div className="absolute inset-0 bg-rose-600/10 border border-rose-500 flex items-center justify-center">
-                          <span className="text-white text-[10px] font-bold bg-rose-600 px-2 py-0.5 rounded animate-bounce">FALL 감지</span>
-                        </div>
-                      )}
+
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* MONITORING view */}
-          {activeMenu === 'monitoring' && (
-            <div className="flex-1 p-6 overflow-y-auto space-y-4">
-              <h2 className="text-sm font-bold text-white">전체 구역 고정형 관제 뷰</h2>
-              <div className="h-[400px] border border-slate-800 rounded-2xl bg-black overflow-hidden relative">
-                <LiveCameraGrid cameras={liveCameras} className="h-full p-3" />
-                <div className="absolute top-4 left-4 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-lg flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                  <span className="text-xs font-bold text-white">복도 A — 실시간 분석 채널</span>
-                </div>
               </div>
             </div>
           )}
@@ -591,15 +565,25 @@ export function IntegratedDashboard({ onLogout, inquiries, onAddReply }: Integra
         <aside className="w-72 bg-[#020817] border-l border-slate-800/50 flex flex-col flex-shrink-0">
           <div className="flex-1 bg-[#071329] m-3 mb-0 rounded-xl flex flex-col overflow-hidden">
             <div className="p-4 border-b border-slate-800/50">
-              <h3 className="text-base font-bold text-white">실시간 AI 위험 탐지</h3>
-              <p className="text-[10px] text-slate-400 mt-0.5">전 구역 안전 경보 리스트</p>
+               <div className="flex items-center justify-between">
+                 <div>
+                   <h3 className="text-base font-bold text-white">실시간 AI 위험 탐지</h3>
+                   <p className="text-[10px] text-slate-400 mt-0.5">전 구역 안전 경보 리스트</p>
+                 </div>
+                 <div className="flex items-center gap-1 text-[9px] text-rose-500 font-extrabold bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
+                   <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" /> AI 감시중
+                 </div>
+               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {events.map(evt => (
-                <div
-                  key={evt.id}
-                  className={`bg-[#0f172a] rounded-xl p-3 flex items-center gap-3 transition-opacity ${evt.status === 'resolved' ? 'opacity-50' : ''}`}
-                >
+              {events.filter(e => e.status === 'new').length === 0 && (
+                <div className="h-full flex flex-col items-center justify-center text-slate-500 opacity-50">
+                  <Shield className="w-8 h-8 mb-2" />
+                  <p className="text-xs font-semibold">특이사항 없음</p>
+                </div>
+              )}
+              {events.filter(e => e.status === 'new').map(evt => (
+                <div key={evt.id} className="bg-[#0f172a] rounded-xl p-3 flex items-center gap-3">
                   <div className="w-12 h-12 bg-[#374151] rounded-lg flex-shrink-0 overflow-hidden">
                     <div className="flex h-full w-full items-center justify-center bg-slate-900 text-[9px] font-bold text-slate-500">LIVE</div>
                   </div>
@@ -607,16 +591,7 @@ export function IntegratedDashboard({ onLogout, inquiries, onAddReply }: Integra
                     <p className="text-white font-bold text-sm leading-tight truncate">{evt.type} 감지</p>
                     <p className="text-[#cbd5e1] text-xs mt-0.5">{evt.time}</p>
                   </div>
-                  {evt.status === 'new' ? (
-                    <button
-                      onClick={() => handleResolveEvent(evt.id)}
-                      className={`${eventButtonStyle(evt.severity)} text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex-shrink-0 cursor-pointer transition-colors`}
-                    >
-                      확인
-                    </button>
-                  ) : (
-                    <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                  )}
+                  <button onClick={() => handleResolveEvent(evt.id)} className={`${eventButtonStyle(evt.severity)} text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex-shrink-0 cursor-pointer`}>확인</button>
                 </div>
               ))}
             </div>
