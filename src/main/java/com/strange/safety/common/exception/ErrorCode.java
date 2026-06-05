@@ -39,7 +39,9 @@ public enum ErrorCode {
     ROI_CONFIG_NOT_FOUND(HttpStatus.NOT_FOUND, "ROI_CONFIG_NOT_FOUND", "ROI 설정을 찾을 수 없습니다."),
 
     SCENARIO_NOT_FOUND(HttpStatus.NOT_FOUND, "SCENARIO_NOT_FOUND", "시나리오를 찾을 수 없습니다."),
-    SCENARIO_PARAMS_NOT_FOUND(HttpStatus.NOT_FOUND, "SCENARIO_PARAMS_NOT_FOUND", "시나리오 파라미터를 찾을 수 없습니다.");
+    SCENARIO_PARAMS_NOT_FOUND(HttpStatus.NOT_FOUND, "SCENARIO_PARAMS_NOT_FOUND", "시나리오 파라미터를 찾을 수 없습니다."),
+
+    INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "INQUIRY_NOT_FOUND", "문의 내역을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;
