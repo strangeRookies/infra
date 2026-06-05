@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -67,6 +68,13 @@ public class SecurityConfig {
                                 "/api/roi-configs/**",
                                 "/api/scenarios/**"
                         ).hasRole("ADMIN")
+
+                        // 문의(Inquiry) 접근 제어
+                        .requestMatchers(HttpMethod.POST, "/api/inquiries").hasAnyRole("INDIVIDUAL", "CORPORATE")
+                        .requestMatchers("/api/inquiries/my").hasAnyRole("INDIVIDUAL", "CORPORATE")
+                        .requestMatchers(HttpMethod.GET, "/api/inquiries/{inquiryId}").hasAnyRole("ADMIN", "INDIVIDUAL", "CORPORATE")
+                        .requestMatchers(HttpMethod.GET, "/api/inquiries").hasRole("ADMIN")
+                        .requestMatchers("/api/inquiries/*/answer").hasRole("ADMIN")
 
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
