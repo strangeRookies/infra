@@ -32,7 +32,14 @@ public enum ErrorCode {
     CAMERA_NOT_FOUND(HttpStatus.NOT_FOUND, "CAMERA_NOT_FOUND", "카메라를 찾을 수 없습니다."),
     CAMERA_CONNECTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "CAMERA_CONNECTION_FAILED", "카메라 연결에 실패했습니다."),
     ALERT_NOT_FOUND(HttpStatus.NOT_FOUND, "ALERT_NOT_FOUND", "알림을 찾을 수 없습니다."),
-    PROTECTED_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "PROTECTED_TARGET_NOT_FOUND", "보호 대상자를 찾을 수 없습니다.");
+    PROTECTED_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "PROTECTED_TARGET_NOT_FOUND", "보호 대상자를 찾을 수 없습니다."),
+
+    EMERGENCY_CONTACT_NOT_FOUND(HttpStatus.NOT_FOUND, "EMERGENCY_CONTACT_NOT_FOUND", "비상 연락처를 찾을 수 없습니다."),
+
+    ROI_CONFIG_NOT_FOUND(HttpStatus.NOT_FOUND, "ROI_CONFIG_NOT_FOUND", "ROI 설정을 찾을 수 없습니다."),
+
+    SCENARIO_NOT_FOUND(HttpStatus.NOT_FOUND, "SCENARIO_NOT_FOUND", "시나리오를 찾을 수 없습니다."),
+    SCENARIO_PARAMS_NOT_FOUND(HttpStatus.NOT_FOUND, "SCENARIO_PARAMS_NOT_FOUND", "시나리오 파라미터를 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;
