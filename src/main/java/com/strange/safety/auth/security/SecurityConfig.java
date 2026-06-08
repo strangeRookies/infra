@@ -60,6 +60,8 @@ public class SecurityConfig {
                         ).permitAll()
 
                         // USER 접근 가능 — /api/facilities/** ADMIN 규칙보다 반드시 먼저 선언
+                        .requestMatchers(HttpMethod.GET, "/api/facilities")
+                                .hasAnyRole("ADMIN", "INDIVIDUAL", "CORPORATE")
                         .requestMatchers(
                                 "/api/facilities/*/alert-events/**",
                                 "/api/facilities/*/protected-targets/**"

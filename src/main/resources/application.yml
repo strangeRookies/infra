@@ -53,5 +53,8 @@ logging:
   level:
     com.strange.safety: INFO
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> origin/develop

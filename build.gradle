@@ -43,8 +43,8 @@ dependencies {
     // MQTT 실시간 통신을 위한 Spring Integration & Paho 클라이언트
     implementation 'org.springframework.integration:spring-integration-mqtt'
     implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
-
     implementation 'org.springframework.boot:spring-boot-starter-integration'
+
     
 }
 
