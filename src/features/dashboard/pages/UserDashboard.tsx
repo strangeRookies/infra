@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Shield, ShieldAlert, Bell, Search, Video, Calendar, Clock, Play, Pause, Volume2,
   Download, AlertTriangle, Flame, Check, Tv, LogOut,
@@ -13,6 +13,7 @@ import hospitalHallwayCctv from '../../../assets/hospital_hallway_cctv.png';
 import type { Inquiry } from '../../../shared/types/inquiry';
 import { AiDangerPanel } from '../../../components/dashboard/AiDangerPanel';
 import { useAiAlertActions } from '../../../hooks/useAiAlertActions';
+import { aiEventKey, findCameraForAiEvent, getEventTypeKorean } from '../../../shared/utils/aiAlerts';
 
 interface NurseDashboardProps {
   username: string;
@@ -132,6 +133,68 @@ export function NurseDashboard({ username, userType, onLogout, inquiries, onAddI
     setFocusedCameraId,
   } = useAiAlertActions({ userType, username, liveCameras, focusHome });
 
+  // Synchronize real AI danger events with the alerts state
+  useEffect(() => {
+    if (dangerAiEvents.length === 0) return;
+
+    setAlerts(prev => {
+      let updated = [...prev];
+      let changed = false;
+
+      // 1. Process new AI events
+      dangerAiEvents.forEach(event => {
+        const key = aiEventKey(event);
+        const exists = updated.some(a => a.id === key);
+
+        if (!exists) {
+          const cameraObj = findCameraForAiEvent(liveCameras, event);
+          const cameraName = cameraObj ? cameraObj.name : event.camera_id;
+          
+          const timeString = new Date(event.timestamp * 1000).toTimeString().split(' ')[0];
+          
+          const eventType = event.event_type.toUpperCase();
+          const label = `${eventType} (${getEventTypeKorean(event.event_type)}) 감지`;
+          
+          const severityMap: Record<string, 'critical' | 'warning' | 'info'> = {
+            'CRITICAL': 'critical',
+            'HIGH': 'critical',
+            'MEDIUM': 'warning',
+            'LOW': 'info'
+          };
+          const severity = severityMap[event.severity.toUpperCase()] || 'critical';
+          const isAcknowledged = acknowledgedAiEventIds.has(key);
+
+          const newAlert: IncidentAlert = {
+            id: key,
+            time: timeString,
+            timestamp: event.timestamp * 1000,
+            camera: cameraName,
+            type: eventType,
+            label: label,
+            severity: severity,
+            status: isAcknowledged ? 'resolved' : 'new'
+          };
+          
+          // Prepend new alert
+          updated = [newAlert, ...updated];
+          changed = true;
+        }
+      });
+
+      // 2. Sync acknowledgment status
+      updated = updated.map(a => {
+        const isAcknowledged = acknowledgedAiEventIds.has(a.id);
+        if (isAcknowledged && a.status === 'new') {
+          changed = true;
+          return { ...a, status: 'resolved' as const };
+        }
+        return a;
+      });
+
+      return changed ? updated : prev;
+    });
+  }, [dangerAiEvents, acknowledgedAiEventIds, liveCameras]);
+
   // History filters
   const [searchDate, setSearchDate]       = useState<'today' | 'week' | 'month'>('month');
   const [searchCamera, setSearchCamera]   = useState('전체');
@@ -183,8 +246,15 @@ export function NurseDashboard({ username, userType, onLogout, inquiries, onAddI
   const selectedQna  = myInquiries.find(inq => inq.id === selectedQnaId) ?? null;
   const pwStrength   = getPasswordStrength(newPw);
 
-  const handleResolveAlert = (id: string) =>
+  const handleResolveAlert = (id: string) => {
     setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: 'resolved' as const } : a));
+    if (id.includes(':')) {
+      const matchingEvent = dangerAiEvents.find(e => aiEventKey(e) === id);
+      if (matchingEvent) {
+        handleConfirmAiEvent(matchingEvent);
+      }
+    }
+  };
 
   const handleTriggerEmergency = () => {
     const ok = window.confirm('🚨 [긴급] 119 비상 공동 대처 호출을 발령하시겠습니까?\n현재 구역 주소지로 소방차가 즉시 출동합니다.');
@@ -240,6 +310,11 @@ export function NurseDashboard({ username, userType, onLogout, inquiries, onAddI
     { id: 'CCTV-06', name: '출입구',   style: 'brightness-75' },
     { id: 'CCTV-07', name: '후문',     style: 'brightness-110 contrast-105' },
   ];
+
+  const selectedCameraObj = selectedIncident ? liveCameras.find(
+    c => c.name === selectedIncident.camera || c.location === selectedIncident.camera
+  ) : null;
+  const playbackStreamUrl = selectedCameraObj?.streamUrl || liveCameras[0]?.streamUrl;
 
   return (
     <div className="min-h-screen bg-[#020817] text-slate-100 flex flex-col font-sans">
@@ -1123,7 +1198,7 @@ export function NurseDashboard({ username, userType, onLogout, inquiries, onAddI
               <button onClick={() => setSelectedIncident(null)} className="text-xs font-bold text-slate-400 hover:text-white px-2 py-1 rounded bg-[#020817] border border-slate-800 cursor-pointer">닫기</button>
             </div>
             <div className="relative aspect-video bg-black overflow-hidden">
-              <img src={liveCameras[0].streamUrl} alt="Playback stream" className="w-full h-full object-cover contrast-125 brightness-75" />
+              <img src={playbackStreamUrl} alt="Playback stream" className="w-full h-full object-cover contrast-125 brightness-75" />
               <div className="absolute top-1/3 left-1/3 w-1/3 h-1/3 border-2 border-rose-500 rounded bg-rose-500/5 flex flex-col justify-between p-2">
                 <span className="text-[9px] font-bold text-white bg-rose-600 px-1.5 rounded uppercase self-start">{selectedIncident.type}</span>
                 <span className="text-[10px] text-rose-400 font-extrabold text-center animate-pulse">이상 거동 감지 (CRITICAL)</span>
