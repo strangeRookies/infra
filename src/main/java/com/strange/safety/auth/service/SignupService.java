@@ -14,6 +14,7 @@ import com.strange.safety.facility.entity.*;
 import com.strange.safety.facility.repository.*;
 import com.strange.safety.user.entity.User;
 import com.strange.safety.user.repository.UserRepository;
+import com.strange.safety.user.service.UserAgreementService;
 import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
@@ -35,13 +36,16 @@ public class SignupService {
     private final EmergencyContactRepository emergencyContactRepository;
     private final PasswordEncoder passwordEncoder;
     private final SmsVerificationService smsVerificationService;
+    private final UserAgreementService userAgreementService;
 
     public SignupResponse signupIndividual(IndividualSignupRequest request) {
         String email = normalizeEmail(request.email());
         validateEmailAvailable(email);
+        userAgreementService.validateRequiredAgreements(request.agreements());
         smsVerificationService.consume(request.verificationToken(), request.phone(), VerificationPurpose.SIGN_UP);
 
         User user = saveUser(email, request.password(), request.name(), request.phone(), Role.INDIVIDUAL);
+        userAgreementService.saveSignupAgreements(user, request.agreements());
         IndividualSignupRequest.CareTargetRequest targetRequest = request.careTarget();
         Facility facility = facilityRepository.save(Facility.builder()
                 .facilityName(targetRequest.name() + " 보호 시설")
@@ -79,9 +83,11 @@ public class SignupService {
         if (companyProfileRepository.existsByBusinessRegistrationNumber(businessNumber)) {
             throw new CustomException(ErrorCode.COMPANY_BUSINESS_NUMBER_ALREADY_EXISTS);
         }
+        userAgreementService.validateRequiredAgreements(request.agreements());
         smsVerificationService.consume(request.verificationToken(), request.phone(), VerificationPurpose.SIGN_UP);
 
         User user = saveUser(email, request.password(), request.manager().name(), request.phone(), Role.CORPORATE);
+        userAgreementService.saveSignupAgreements(user, request.agreements());
         CorporateSignupRequest.CompanyRequest company = request.company();
         CorporateSignupRequest.ManagerRequest manager = request.manager();
         CompanyProfile profile = companyProfileRepository.save(CompanyProfile.builder()

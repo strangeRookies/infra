@@ -19,6 +19,9 @@ import com.strange.safety.event.MqttSafetyEventSubscriber;
 import com.strange.safety.facility.repository.FacilityRepository;
 import com.strange.safety.facility.repository.ProtectedTargetRepository;
 import com.strange.safety.facility.repository.UserFacilityRepository;
+import com.strange.safety.user.dto.AgreementRequest;
+import com.strange.safety.user.entity.AgreementType;
+import com.strange.safety.user.repository.UserAgreementRepository;
 import com.strange.safety.user.repository.UserRepository;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -45,6 +48,7 @@ class SignupServiceIntegrationTest {
     @Autowired UserFacilityRepository userFacilityRepository;
     @Autowired ProtectedTargetRepository protectedTargetRepository;
     @Autowired EmergencyContactRepository emergencyContactRepository;
+    @Autowired UserAgreementRepository userAgreementRepository;
     @Autowired SmsVerificationRepository smsVerificationRepository;
     @Autowired RefreshTokenHasher tokenHasher;
     @Autowired PasswordEncoder passwordEncoder;
@@ -54,6 +58,7 @@ class SignupServiceIntegrationTest {
 
     @BeforeEach
     void cleanDatabase() {
+        userAgreementRepository.deleteAll();
         emergencyContactRepository.deleteAll();
         protectedTargetRepository.deleteAll();
         userFacilityRepository.deleteAll();
@@ -69,7 +74,7 @@ class SignupServiceIntegrationTest {
         String token = verifiedToken("01011112222");
 
         var response = signupService.signupIndividual(individualRequest(
-                "individual@example.com", "01011112222", token, "70대"));
+                "individual@example.com", "01011112222", token, "70s"));
 
         assertThat(response.role()).isEqualTo(Role.INDIVIDUAL);
         assertThat(userRepository.count()).isEqualTo(1);
@@ -77,6 +82,7 @@ class SignupServiceIntegrationTest {
         assertThat(userFacilityRepository.count()).isEqualTo(1);
         assertThat(protectedTargetRepository.count()).isEqualTo(1);
         assertThat(emergencyContactRepository.count()).isEqualTo(1);
+        assertThat(userAgreementRepository.count()).isEqualTo(3);
     }
 
     @Test
@@ -90,6 +96,7 @@ class SignupServiceIntegrationTest {
                 .isInstanceOf(CustomException.class);
 
         assertThat(userRepository.count()).isZero();
+        assertThat(userAgreementRepository.count()).isZero();
         assertThat(facilityRepository.count()).isZero();
         assertThat(userFacilityRepository.count()).isZero();
         assertThat(protectedTargetRepository.count()).isZero();
@@ -107,16 +114,19 @@ class SignupServiceIntegrationTest {
         assertThat(userRepository.count()).isEqualTo(1);
         assertThat(companyProfileRepository.count()).isEqualTo(1);
         assertThat(installationRequestRepository.count()).isEqualTo(1);
+        assertThat(userAgreementRepository.count()).isEqualTo(3);
     }
 
     @Test
     void corporateSignupFailureRollsBackUserAndProfile() {
         String token = verifiedToken("01055556666");
+        var base = corporateRequest("x@example.com", "01055556666", token, "1234567890");
         var invalid = new CorporateSignupRequest(
                 "corporate-rollback@example.com", "Password123!", "01055556666", token,
-                corporateRequest("x@example.com", "01055556666", token, "1234567890").company(),
-                corporateRequest("x@example.com", "01055556666", token, "1234567890").manager(),
-                new CorporateSignupRequest.InstallationRequest("6~15개소", null, null)
+                base.company(),
+                base.manager(),
+                new CorporateSignupRequest.InstallationRequest("6-15", null, null),
+                requiredAgreements(true)
         );
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
 
@@ -125,6 +135,7 @@ class SignupServiceIntegrationTest {
                 .isInstanceOf(RuntimeException.class);
 
         assertThat(userRepository.count()).isZero();
+        assertThat(userAgreementRepository.count()).isZero();
         assertThat(companyProfileRepository.count()).isZero();
         assertThat(installationRequestRepository.count()).isZero();
     }
@@ -137,7 +148,7 @@ class SignupServiceIntegrationTest {
 
         assertThatThrownBy(() -> signupService.signupIndividual(individualRequest(
                 "DUPLICATE@example.com", "01011112222",
-                verifiedToken("01011112222"), "70대")))
+                verifiedToken("01011112222"), "70s")))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_EMAIL_ALREADY_EXISTS);
@@ -148,6 +159,56 @@ class SignupServiceIntegrationTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.COMPANY_BUSINESS_NUMBER_ALREADY_EXISTS);
+    }
+
+    @Test
+    void signupRejectsMissingRequiredAgreementsBeforeConsumingSmsToken() {
+        String phone = "01011112222";
+        String token = verifiedToken(phone);
+
+        assertThatThrownBy(() -> signupService.signupIndividual(
+                individualRequest("agreement-required@example.com", phone, token, "70s", null)))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.AGREEMENT_REQUIRED);
+
+        SmsVerification verification = smsVerificationRepository.findAll().get(0);
+        assertThat(verification.getUsedAt()).isNull();
+        assertThat(userRepository.count()).isZero();
+        assertThat(userAgreementRepository.count()).isZero();
+    }
+
+    @Test
+    void signupRejectsFalseRequiredAgreements() {
+        String phone = "01011112222";
+        String token = verifiedToken(phone);
+
+        assertThatThrownBy(() -> signupService.signupIndividual(
+                individualRequest(
+                        "agreement-false@example.com", phone, token, "70s",
+                        new AgreementRequest(true, false, true))))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.AGREEMENT_REQUIRED);
+
+        assertThat(userRepository.count()).isZero();
+        assertThat(userAgreementRepository.count()).isZero();
+    }
+
+    @Test
+    void marketingAgreementCanBeFalseOnSignup() {
+        String token = verifiedToken("01011112222");
+
+        var response = signupService.signupIndividual(individualRequest(
+                "marketing-false@example.com", "01011112222", token, "70s", requiredAgreements(false)));
+
+        var marketingAgreement = userAgreementRepository
+                .findByUserIdAndAgreementType(response.userId(), AgreementType.MARKETING)
+                .orElseThrow();
+        assertThat(marketingAgreement.isRequired()).isFalse();
+        assertThat(marketingAgreement.isAgreed()).isFalse();
+        assertThat(marketingAgreement.getAgreedAt()).isNull();
+        assertThat(marketingAgreement.getWithdrawnAt()).isNotNull();
     }
 
     private String verifiedToken(String phone) {
@@ -161,13 +222,19 @@ class SignupServiceIntegrationTest {
     }
 
     private IndividualSignupRequest individualRequest(String email, String phone, String token, String ageGroup) {
+        return individualRequest(email, phone, token, ageGroup, requiredAgreements(true));
+    }
+
+    private IndividualSignupRequest individualRequest(String email, String phone, String token,
+                                                      String ageGroup, AgreementRequest agreements) {
         return new IndividualSignupRequest(
-                email, "Password123!", "개인 사용자", phone, token,
+                email, "Password123!", "individual user", phone, token,
                 new IndividualSignupRequest.CareTargetRequest(
-                        "보호 대상자", "부모", ageGroup, "04123",
-                        "서울특별시 마포구 월드컵로 1", "101동", "마포구", "마포소방서"),
+                        "care target", "parent", ageGroup, "04123",
+                        "Seoul Mapo-gu Worldcup-ro 1", "101", "Mapo-gu", "Mapo Fire Station"),
                 List.of(new IndividualSignupRequest.EmergencyContactRequest(
-                        "비상 연락처", "자녀", "01033334444"))
+                        "emergency contact", "child", "01033334444")),
+                agreements
         );
     }
 
@@ -175,12 +242,17 @@ class SignupServiceIntegrationTest {
         return new CorporateSignupRequest(
                 email, "Password123!", phone, token,
                 new CorporateSignupRequest.CompanyRequest(
-                        "통합테스트기업", businessNumber, "의료/보건", "50~200인",
-                        "06123", "서울특별시 강남구 테헤란로 1", "안전관리실", "강남구", "강남소방서"),
+                        "Smart Safety Hospital", businessNumber, "medical", "50-200",
+                        "06123", "Seoul Gangnam-gu Teheran-ro 1", "Safety Office", "Gangnam-gu", "Gangnam Fire Station"),
                 new CorporateSignupRequest.ManagerRequest(
-                        "기업 담당자", "안전관리팀", "과장", "manager@example.com", phone),
+                        "company manager", "safety team", "manager", "manager@example.com", phone),
                 new CorporateSignupRequest.InstallationRequest(
-                        "6~15개소", LocalDate.of(2026, 7, 1), "실외 카메라 설치 필요")
+                        "6-15", LocalDate.of(2026, 7, 1), "outdoor camera installation"),
+                requiredAgreements(true)
         );
+    }
+
+    private AgreementRequest requiredAgreements(boolean marketingAgreed) {
+        return new AgreementRequest(true, true, marketingAgreed);
     }
 }

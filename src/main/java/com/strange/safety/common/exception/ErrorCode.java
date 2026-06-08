@@ -27,6 +27,9 @@ public enum ErrorCode {
 
     COMPANY_BUSINESS_NUMBER_ALREADY_EXISTS(HttpStatus.CONFLICT, "COMPANY_BUSINESS_NUMBER_ALREADY_EXISTS", "이미 등록된 사업자등록번호입니다."),
 
+    AGREEMENT_REQUIRED(HttpStatus.BAD_REQUEST, "AGREEMENT_REQUIRED", "필수 약관에 동의해야 합니다."),
+    AGREEMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "AGREEMENT_NOT_FOUND", "약관 동의 이력을 찾을 수 없습니다."),
+
     FACILITY_NOT_FOUND(HttpStatus.NOT_FOUND, "FACILITY_NOT_FOUND", "시설을 찾을 수 없습니다."),
     FACILITY_ACCESS_DENIED(HttpStatus.FORBIDDEN, "FACILITY_ACCESS_DENIED", "해당 시설에 접근 권한이 없습니다."),
     CAMERA_NOT_FOUND(HttpStatus.NOT_FOUND, "CAMERA_NOT_FOUND", "카메라를 찾을 수 없습니다."),
