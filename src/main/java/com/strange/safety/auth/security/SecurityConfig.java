@@ -55,7 +55,8 @@ public class SecurityConfig {
                                 "/api/auth/verifications/sms",
                                 "/api/auth/verifications/sms/confirm",
                                 "/api/auth/email-availability",
-                                "/api/companies/business-number-availability"
+                                "/api/companies/business-number-availability",
+                                "/api/emergency-jurisdictions/resolve"
                         ).permitAll()
 
                         // USER 접근 가능 — /api/facilities/** ADMIN 규칙보다 반드시 먼저 선언

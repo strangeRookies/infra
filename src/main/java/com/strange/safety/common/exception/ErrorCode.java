@@ -38,6 +38,7 @@ public enum ErrorCode {
     PROTECTED_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "PROTECTED_TARGET_NOT_FOUND", "보호 대상자를 찾을 수 없습니다."),
 
     EMERGENCY_CONTACT_NOT_FOUND(HttpStatus.NOT_FOUND, "EMERGENCY_CONTACT_NOT_FOUND", "비상 연락처를 찾을 수 없습니다."),
+    EMERGENCY_JURISDICTION_NOT_FOUND(HttpStatus.NOT_FOUND, "EMERGENCY_JURISDICTION_NOT_FOUND", "입력한 주소의 관할 응급기관을 찾을 수 없습니다."),
 
     ROI_CONFIG_NOT_FOUND(HttpStatus.NOT_FOUND, "ROI_CONFIG_NOT_FOUND", "ROI 설정을 찾을 수 없습니다."),
 
