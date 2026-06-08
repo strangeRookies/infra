@@ -1,253 +1,93 @@
-프론트에 전달할 핵심은 “경로, 요청 JSON, 응답 위치, 토큰 처리, 아직 미구현 범위”입니다.
+역할 분리
 
-**연동 가능 API**
+프론트에서 해야 할 일:
 
-```http
-POST /api/auth/verifications/sms
-POST /api/auth/verifications/sms/confirm
-GET  /api/auth/email-availability?email=user@example.com
-GET  /api/companies/business-number-availability?businessNumber=1234567890
-
-POST /api/auth/signup/individual
-POST /api/auth/signup/corporate
-POST /api/auth/login
-POST /api/auth/reissue
-POST /api/auth/logout
-
-GET  /api/users/me
-GET  /api/users/me/agreements
-PATCH /api/users/me/agreements/marketing
-```
-
-**공통 응답 구조**
-
-모든 성공 응답은 `data` 안에 실제 값이 들어갑니다.
-
-```json
-{
-  "success": true,
-  "message": "요청이 성공했습니다.",
-  "data": {}
+회원가입 화면에 약관 체크박스 표시
+약관 상세 내용 모달/접기 영역 제공
+필수 약관 미동의 시 버튼 비활성화 또는 프론트 검증
+회원가입 요청에 아래 값 전달
+"agreements": {
+  "termsAgreed": true,
+  "privacyAgreed": true,
+  "marketingAgreed": false
 }
-```
+백엔드에서 해야 할 일:
 
-에러 응답은 아래 형태입니다.
+termsAgreed, privacyAgreed가 true인지 검증
+미동의 시 AGREEMENT_REQUIRED 반환
+가입 성공 시 user_agreements에 동의 이력 저장
+마케팅 동의/철회 API 제공
+현재 백엔드는 이 구조까지 구현된 상태입니다.
 
-```json
-{
-  "success": false,
-  "error": {
-    "code": "AGREEMENT_REQUIRED",
-    "message": "필수 약관에 동의해야 합니다.",
-    "fieldErrors": null
-  }
-}
-```
+회원가입 화면에 넣을 약관 항목
 
-**SMS 인증**
+개인/기업 공통으로 3개면 충분합니다.
 
-로컬/개발 환경 인증번호는 현재 `123456`입니다.
+[필수] 서비스 이용약관 동의
+[필수] 개인정보 수집 및 이용 동의
+[선택] 마케팅 정보 수신 동의
+1. 서비스 이용약관
 
-발송:
+내용 방향:
 
-```http
-POST /api/auth/verifications/sms
-```
+- 서비스 목적
+- 회원 계정 생성 및 관리
+- 사용자의 의무
+- 부정 이용 제한
+- 서비스 제공 범위
+- 서비스 중단 또는 변경 가능성
+- 책임 제한
+- 탈퇴 및 이용 제한
+프론트 표시 예시:
 
-```json
-{
-  "phone": "01012345678",
-  "purpose": "SIGN_UP"
-}
-```
+서비스 이용약관 동의
 
-확인:
+본 약관은 스마트 안전 모니터링 서비스의 이용 조건, 회원의 권리와 의무,
+서비스 제공 범위, 이용 제한 및 책임 범위를 정합니다.
+회원은 본 서비스를 안전 모니터링, 알림 확인, 시설 및 보호 대상자 관리 목적에 맞게 이용해야 합니다.
+2. 개인정보 수집 및 이용 동의
 
-```http
-POST /api/auth/verifications/sms/confirm
-```
+이건 개인/기업 가입에서 수집하는 값이 다르므로 내용에 둘 다 포함하는 게 좋습니다.
 
-```json
-{
-  "verificationId": "응답받은 verificationId",
-  "code": "123456"
-}
-```
+개인 회원 수집 항목:
 
-확인 성공 후 응답의 `verificationToken`을 회원가입 API에 넣어야 합니다.
+이메일, 비밀번호, 이름, 휴대폰 번호,
+보호 대상자 이름, 관계, 연령대, 주소,
+비상 연락처 이름, 관계, 휴대폰 번호
+기업 회원 수집 항목:
 
-**개인 회원가입**
+이메일, 비밀번호, 휴대폰 번호,
+기업명, 사업자등록번호, 업종, 기업 규모, 주소,
+담당자 이름, 부서, 직급, 이메일, 연락처
+프론트 표시 예시:
 
-```http
-POST /api/auth/signup/individual
-```
+개인정보 수집 및 이용 동의
 
-필수로 `agreements`를 포함해야 합니다.
+회사는 회원가입, 본인 확인, 서비스 제공, 안전 모니터링 대상 관리,
+알림 및 긴급 상황 대응을 위해 개인정보를 수집·이용합니다.
 
-```json
-{
-  "email": "user@example.com",
-  "password": "Password123!",
-  "name": "홍길동",
-  "phone": "01012345678",
-  "verificationToken": "verified-token",
-  "careTarget": {
-    "name": "홍부모",
-    "relation": "부모",
-    "ageGroup": "70대",
-    "postcode": "04123",
-    "address": "서울특별시 마포구 월드컵로 1",
-    "addressDetail": "101동 101호",
-    "district": "마포구",
-    "jurisdiction": "마포소방서"
-  },
-  "emergencyContacts": [
-    {
-      "name": "김보호",
-      "relation": "첫째 아들",
-      "phone": "01098765432"
-    }
-  ],
-  "agreements": {
-    "termsAgreed": true,
-    "privacyAgreed": true,
-    "marketingAgreed": false
-  }
-}
-```
+수집 항목은 회원 유형에 따라 이메일, 이름, 휴대폰 번호, 주소,
+보호 대상자 정보, 비상 연락처 정보, 기업 정보, 담당자 정보가 포함될 수 있습니다.
+3. 마케팅 정보 수신 동의
 
-**기업 회원가입**
+선택 항목입니다. 동의하지 않아도 가입 가능해야 합니다.
 
-```http
-POST /api/auth/signup/corporate
-```
+프론트 표시 예시:
 
-```json
-{
-  "email": "admin@company.com",
-  "password": "Password123!",
-  "phone": "01012345678",
-  "verificationToken": "verified-token",
-  "company": {
-    "name": "스마트안전병원",
-    "businessNumber": "1234567890",
-    "industry": "의료/보건",
-    "size": "50~200인",
-    "postcode": "06123",
-    "address": "서울특별시 강남구 테헤란로 1",
-    "addressDetail": "안전관리실",
-    "district": "강남구",
-    "jurisdiction": "강남소방서"
-  },
-  "manager": {
-    "name": "김담당",
-    "department": "안전관리팀",
-    "rank": "과장",
-    "email": "manager@company.com",
-    "contact": "01012345678"
-  },
-  "installation": {
-    "count": "6~15개소",
-    "preferredDate": "2026-07-01",
-    "specialRequest": "실외 카메라 설치 필요"
-  },
-  "agreements": {
-    "termsAgreed": true,
-    "privacyAgreed": true,
-    "marketingAgreed": false
-  }
-}
-```
+마케팅 정보 수신 동의
 
-**로그인**
+서비스 안내, 이벤트, 기능 업데이트, 도입 상담 등 마케팅 정보를
+이메일 또는 문자로 수신하는 데 동의합니다.
+동의하지 않아도 회원가입 및 서비스 이용에는 제한이 없습니다.
+중요한 기준
 
-```http
-POST /api/auth/login
-```
+지금은 약관 전문을 백엔드에서 내려주는 구조가 아닙니다. 따라서 프론트에서 약관 문구를 상수나 페이지 콘텐츠로 관리하면 됩니다.
 
-```json
-{
-  "email": "user@example.com",
-  "password": "Password123!",
-  "accountType": "INDIVIDUAL"
-}
-```
+백엔드가 약관 내용을 관리해야 하는 경우는 다음 단계입니다.
 
-`accountType` 값:
-
-```text
-INDIVIDUAL
-CORPORATE
-ADMIN
-```
-
-로그인 성공 후 프론트는:
-
-```text
-data.accessToken 저장
-data.refreshToken 저장
-data.user.role 기준으로 화면 이동
-```
-
-인증 필요한 API 호출 시:
-
-```http
-Authorization: Bearer {accessToken}
-```
-
-**토큰 재발급/로그아웃**
-
-재발급:
-
-```http
-POST /api/auth/reissue
-```
-
-```json
-{
-  "refreshToken": "refresh-token"
-}
-```
-
-로그아웃:
-
-```http
-POST /api/auth/logout
-Authorization: Bearer {accessToken}
-```
-
-```json
-{
-  "refreshToken": "refresh-token"
-}
-```
-
-**약관 조회/마케팅 변경**
-
-```http
-GET /api/users/me/agreements
-Authorization: Bearer {accessToken}
-```
-
-```http
-PATCH /api/users/me/agreements/marketing
-Authorization: Bearer {accessToken}
-```
-
-```json
-{
-  "agreed": false
-}
-```
-
-**주의 사항**
-
-- 아이디 저장은 API가 아니라 프론트 `localStorage`에서 처리
-- 필수 약관 미동의 시 `AGREEMENT_REQUIRED`
-- 중복 이메일: `USER_EMAIL_ALREADY_EXISTS`
-- 중복 사업자등록번호: `COMPANY_BUSINESS_NUMBER_ALREADY_EXISTS`
-- 잘못된 로그인: `AUTH_INVALID_CREDENTIALS`
-- 인증 없음: `AUTH_UNAUTHORIZED`
-- 비밀번호 재설정은 아직 미구현
-- 기업 승인은 아직 미구현이라 현재 기업 회원도 가입 즉시 `ACTIVE` 기준입니다.
-
+약관 버전 관리
+관리자 약관 등록
+현재 활성 약관 조회 API
+사용자가 어떤 버전 약관에 동의했는지 저장
+약관 변경 시 재동의 요구
+지금 프론트 연동 단계에서는 과합니다. 현재는 프론트에 약관 문구를 넣고, 백엔드에는 동의 여부만 보내는 방식이 적절합니다.

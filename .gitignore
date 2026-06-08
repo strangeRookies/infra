@@ -7,5 +7,6 @@ dist
 .vscode/
 .idea/
 CLAUDE.md
-Backend/
+BackEnd.md
 dashboard-cctv-check.png
+

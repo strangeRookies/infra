@@ -19,6 +19,8 @@ import {
   requestSmsVerification,
   signupIndividual,
 } from '../../auth/api/authApi';
+import { AgreementDetailDialog } from '../components/AgreementDetailDialog';
+import { getAgreementById, type AgreementId } from '../data/agreements';
 
 interface PersonalSignUpProps {
   onBackToLogin: () => void;
@@ -83,6 +85,7 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [agreeMarketing, setAgreeMarketing] = useState(false);
+  const [selectedAgreementId, setSelectedAgreementId] = useState<AgreementId | null>(null);
 
   // Sync selected district to jurisdiction
   useEffect(() => {
@@ -268,6 +271,8 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
       }
     }
   };
+
+  const selectedAgreement = selectedAgreementId ? getAgreementById(selectedAgreementId) : undefined;
 
   return (
     <div className="min-h-screen bg-[#070e1b] text-slate-100 font-sans flex flex-col pb-12">
@@ -744,7 +749,7 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
                   </label>
                   <button
                     type="button"
-                    onClick={() => alert('서비스 이용약관 상세 내용 팝업')}
+                    onClick={() => setSelectedAgreementId('terms')}
                     className="text-[10px] text-slate-400 hover:text-white font-medium hover:underline bg-[#0c1626] border border-slate-800 px-2.5 py-1 rounded-md"
                   >
                     내용 보기
@@ -764,7 +769,7 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
                   </label>
                   <button
                     type="button"
-                    onClick={() => alert('개인정보 동의 상세 내용 팝업')}
+                    onClick={() => setSelectedAgreementId('privacy')}
                     className="text-[10px] text-slate-400 hover:text-white font-medium hover:underline bg-[#0c1626] border border-slate-800 px-2.5 py-1 rounded-md"
                   >
                     내용 보기
@@ -784,7 +789,7 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
                   </label>
                   <button
                     type="button"
-                    onClick={() => alert('마케팅 수신 상세 내용 팝업')}
+                    onClick={() => setSelectedAgreementId('marketing')}
                     className="text-[10px] text-slate-400 hover:text-white font-medium hover:underline bg-[#0c1626] border border-slate-800 px-2.5 py-1 rounded-md"
                   >
                     내용 보기
@@ -819,6 +824,15 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
 
         </div>
       </main>
+      <AgreementDetailDialog
+        agreement={selectedAgreement}
+        open={selectedAgreementId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedAgreementId(null);
+          }
+        }}
+      />
     </div>
   );
 }

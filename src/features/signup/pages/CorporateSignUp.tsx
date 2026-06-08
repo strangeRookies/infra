@@ -19,6 +19,8 @@ import {
   requestSmsVerification,
   signupCorporate,
 } from '../../auth/api/authApi';
+import { AgreementDetailDialog } from '../components/AgreementDetailDialog';
+import { getAgreementById, type AgreementId } from '../data/agreements';
 
 interface CorporateSignUpProps {
   onBackToLogin: () => void;
@@ -59,6 +61,7 @@ export function CorporateSignUp({ onBackToLogin, onSignUpComplete }: CorporateSi
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [agreeMarketing, setAgreeMarketing] = useState(false);
+  const [selectedAgreementId, setSelectedAgreementId] = useState<AgreementId | null>(null);
 
   // Load Daum Postcode script dynamically
   const handleSearchPostcode = () => {
@@ -242,6 +245,8 @@ export function CorporateSignUp({ onBackToLogin, onSignUpComplete }: CorporateSi
       onSignUpComplete();
     }
   };
+
+  const selectedAgreement = selectedAgreementId ? getAgreementById(selectedAgreementId) : undefined;
 
   return (
     <div className="min-h-screen bg-[#070e1b] text-slate-100 font-sans flex flex-col pb-12">
@@ -597,7 +602,7 @@ export function CorporateSignUp({ onBackToLogin, onSignUpComplete }: CorporateSi
                   </label>
                   <button
                     type="button"
-                    onClick={() => alert('기업 약관 전문')}
+                    onClick={() => setSelectedAgreementId('terms')}
                     className="text-[10px] text-slate-400 hover:text-white font-medium bg-[#0c1626] border border-slate-800 px-2.5 py-1 rounded-md"
                   >
                     내용 보기
@@ -616,7 +621,7 @@ export function CorporateSignUp({ onBackToLogin, onSignUpComplete }: CorporateSi
                   </label>
                   <button
                     type="button"
-                    onClick={() => alert('개인 및 기업 정보 위탁 전문')}
+                    onClick={() => setSelectedAgreementId('privacy')}
                     className="text-[10px] text-slate-400 hover:text-white font-medium bg-[#0c1626] border border-slate-800 px-2.5 py-1 rounded-md"
                   >
                     내용 보기
@@ -635,7 +640,7 @@ export function CorporateSignUp({ onBackToLogin, onSignUpComplete }: CorporateSi
                   </label>
                   <button
                     type="button"
-                    onClick={() => alert('마케팅 전문')}
+                    onClick={() => setSelectedAgreementId('marketing')}
                     className="text-[10px] text-slate-400 hover:text-white font-medium bg-[#0c1626] border border-slate-800 px-2.5 py-1 rounded-md"
                   >
                     내용 보기
@@ -695,6 +700,15 @@ export function CorporateSignUp({ onBackToLogin, onSignUpComplete }: CorporateSi
 
         </div>
       </main>
+      <AgreementDetailDialog
+        agreement={selectedAgreement}
+        open={selectedAgreementId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedAgreementId(null);
+          }
+        }}
+      />
     </div>
   );
 }
