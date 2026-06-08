@@ -104,17 +104,28 @@ class SignupServiceIntegrationTest {
     }
 
     @Test
-    void corporateSignupCreatesProfileAndInstallationRequest() {
+    void corporateSignupCreatesProfile() {
         String token = verifiedToken("01055556666");
 
         var response = signupService.signupCorporate(corporateRequest(
-                "corporate@example.com", "01055556666", token, "123-45-67890"));
+                "corporate@example.com", "01055556666", token, "123-45-67890", null));
 
         assertThat(response.role()).isEqualTo(Role.CORPORATE);
         assertThat(userRepository.count()).isEqualTo(1);
         assertThat(companyProfileRepository.count()).isEqualTo(1);
-        assertThat(installationRequestRepository.count()).isEqualTo(1);
+        assertThat(installationRequestRepository.count()).isZero();
         assertThat(userAgreementRepository.count()).isEqualTo(3);
+    }
+
+    @Test
+    void corporateSignupCreatesInstallationRequestWhenProvided() {
+        String token = verifiedToken("01055556666");
+
+        signupService.signupCorporate(corporateRequest(
+                "corporate-installation@example.com", "01055556666", token, "123-45-67890"));
+
+        assertThat(companyProfileRepository.count()).isEqualTo(1);
+        assertThat(installationRequestRepository.count()).isEqualTo(1);
     }
 
     @Test
@@ -239,6 +250,16 @@ class SignupServiceIntegrationTest {
     }
 
     private CorporateSignupRequest corporateRequest(String email, String phone, String token, String businessNumber) {
+        return corporateRequest(
+                email, phone, token, businessNumber,
+                new CorporateSignupRequest.InstallationRequest(
+                        "6-15", LocalDate.of(2026, 7, 1), "outdoor camera installation")
+        );
+    }
+
+    private CorporateSignupRequest corporateRequest(String email, String phone, String token,
+                                                    String businessNumber,
+                                                    CorporateSignupRequest.InstallationRequest installation) {
         return new CorporateSignupRequest(
                 email, "Password123!", phone, token,
                 new CorporateSignupRequest.CompanyRequest(
@@ -246,8 +267,7 @@ class SignupServiceIntegrationTest {
                         "06123", "Seoul Gangnam-gu Teheran-ro 1", "Safety Office", "Gangnam-gu", "Gangnam Fire Station"),
                 new CorporateSignupRequest.ManagerRequest(
                         "company manager", "safety team", "manager", "manager@example.com", phone),
-                new CorporateSignupRequest.InstallationRequest(
-                        "6-15", LocalDate.of(2026, 7, 1), "outdoor camera installation"),
+                installation,
                 requiredAgreements(true)
         );
     }

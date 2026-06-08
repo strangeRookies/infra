@@ -100,10 +100,12 @@ public class SignupService {
                 .managerContact(smsVerificationService.normalizePhone(manager.contact()))
                 .build());
         CorporateSignupRequest.InstallationRequest installation = request.installation();
-        installationRequestRepository.save(com.strange.safety.company.entity.InstallationRequest.builder()
-                .companyProfile(profile).installationCount(installation.count())
-                .preferredDate(installation.preferredDate()).specialRequest(installation.specialRequest())
-                .build());
+        if (installation != null) {
+            installationRequestRepository.save(com.strange.safety.company.entity.InstallationRequest.builder()
+                    .companyProfile(profile).installationCount(installation.count())
+                    .preferredDate(installation.preferredDate()).specialRequest(installation.specialRequest())
+                    .build());
+        }
         return SignupResponse.from(user);
     }
 

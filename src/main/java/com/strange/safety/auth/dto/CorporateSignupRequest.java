@@ -12,7 +12,7 @@ public record CorporateSignupRequest(
         @NotBlank String verificationToken,
         @Valid @NotNull CompanyRequest company,
         @Valid @NotNull ManagerRequest manager,
-        @Valid @NotNull InstallationRequest installation,
+        @Valid InstallationRequest installation,
         AgreementRequest agreements
 ) {
     public record CompanyRequest(
