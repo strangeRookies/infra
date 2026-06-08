@@ -3,6 +3,7 @@ package com.strange.safety.auth.dto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.util.List;
+import com.strange.safety.user.dto.AgreementRequest;
 
 public record IndividualSignupRequest(
         @Email @NotBlank String email,
@@ -11,7 +12,8 @@ public record IndividualSignupRequest(
         @NotBlank String phone,
         @NotBlank String verificationToken,
         @Valid @NotNull CareTargetRequest careTarget,
-        @Valid List<EmergencyContactRequest> emergencyContacts
+        @Valid List<EmergencyContactRequest> emergencyContacts,
+        AgreementRequest agreements
 ) {
     public record CareTargetRequest(
             @NotBlank String name,

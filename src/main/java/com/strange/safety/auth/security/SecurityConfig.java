@@ -15,6 +15,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -30,6 +36,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
+                // 1. CORS 설정 활성화 추가 (csrf 바로 위에 추가)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) 
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable))
@@ -47,7 +55,8 @@ public class SecurityConfig {
                                 "/api/auth/verifications/sms",
                                 "/api/auth/verifications/sms/confirm",
                                 "/api/auth/email-availability",
-                                "/api/companies/business-number-availability"
+                                "/api/companies/business-number-availability",
+                                "/api/emergency-jurisdictions/resolve"
                         ).permitAll()
 
                         // USER 접근 가능 — /api/facilities/** ADMIN 규칙보다 반드시 먼저 선언
@@ -81,6 +90,25 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
+    }
+
+    // 2. CORS 허용 규칙 설정 Bean 추가
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        // 프론트엔드 주소 허용 (Vite 기본 포트)
+        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+        // 허용할 HTTP 메서드
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        // 허용할 헤더
+        configuration.setAllowedHeaders(List.of("*"));
+        // 쿠키, 인증 정보 허용
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // 모든 경로("/**")에 대해 위 설정 적용
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 
     @Bean

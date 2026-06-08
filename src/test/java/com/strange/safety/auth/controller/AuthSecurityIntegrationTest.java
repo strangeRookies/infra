@@ -1,6 +1,7 @@
 package com.strange.safety.auth.controller;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -12,7 +13,11 @@ import com.strange.safety.auth.repository.RefreshTokenRepository;
 import com.strange.safety.auth.security.JwtTokenProvider;
 import com.strange.safety.event.MqttSafetyEventSubscriber;
 import com.strange.safety.user.entity.User;
+import com.strange.safety.user.entity.AgreementType;
+import com.strange.safety.user.entity.UserAgreement;
+import com.strange.safety.user.repository.UserAgreementRepository;
 import com.strange.safety.user.repository.UserRepository;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +38,7 @@ class AuthSecurityIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
     @Autowired UserRepository userRepository;
+    @Autowired UserAgreementRepository userAgreementRepository;
     @Autowired RefreshTokenRepository refreshTokenRepository;
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired JwtTokenProvider jwtTokenProvider;
@@ -44,6 +50,7 @@ class AuthSecurityIntegrationTest {
     @BeforeEach
     void setUp() {
         refreshTokenRepository.deleteAll();
+        userAgreementRepository.deleteAll();
         userRepository.deleteAll();
         activeUser = userRepository.save(User.create(
                 "security@example.com",
@@ -52,6 +59,12 @@ class AuthSecurityIntegrationTest {
                 "01012345678",
                 Role.INDIVIDUAL
         ));
+        userAgreementRepository.save(UserAgreement.create(
+                activeUser, AgreementType.TERMS, true, true, LocalDateTime.now()));
+        userAgreementRepository.save(UserAgreement.create(
+                activeUser, AgreementType.PRIVACY, true, true, LocalDateTime.now()));
+        userAgreementRepository.save(UserAgreement.create(
+                activeUser, AgreementType.MARKETING, false, true, LocalDateTime.now()));
     }
 
     @Test
@@ -73,6 +86,43 @@ class AuthSecurityIntegrationTest {
                 .andExpect(jsonPath("$.data.email").value("security@example.com"))
                 .andExpect(jsonPath("$.data.role").value("INDIVIDUAL"))
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+    }
+
+    @Test
+    void usersMeAgreementsRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/users/me/agreements"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_UNAUTHORIZED"));
+    }
+
+    @Test
+    void usersMeAgreementsReturnsAgreementsWithValidJwt() throws Exception {
+        String accessToken = jwtTokenProvider.createAccessToken(activeUser);
+
+        mockMvc.perform(get("/api/users/me/agreements")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.length()").value(3));
+    }
+
+    @Test
+    void marketingAgreementCanBeWithdrawnWithValidJwt() throws Exception {
+        String accessToken = jwtTokenProvider.createAccessToken(activeUser);
+
+        mockMvc.perform(patch("/api/users/me/agreements/marketing")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "agreed": false
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.agreementType").value("MARKETING"))
+                .andExpect(jsonPath("$.data.agreed").value(false))
+                .andExpect(jsonPath("$.data.withdrawnAt").exists());
     }
 
     @Test
