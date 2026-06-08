@@ -122,8 +122,17 @@ public class AlertEventService {
 
     @Transactional
     public AlertEventResponse createEvent(SafetyEventDto dto) {
-        String cameraIdVal = dto.cameraId() != null ? dto.cameraId() : "CCTV-01";
-        Camera camera = cameraRepository.findByCameraLoginId(cameraIdVal)
+        String cameraIdVal = dto.cameraId() != null ? dto.cameraId() : "cam_01";
+        
+        // Convert "cam1", "cam2" or "CCTV-01" into DB format "cam_01"
+        if (cameraIdVal.startsWith("cam") && cameraIdVal.length() == 4) {
+            cameraIdVal = "cam_0" + cameraIdVal.charAt(3);
+        } else if (cameraIdVal.startsWith("CCTV-0") && cameraIdVal.length() == 7) {
+            cameraIdVal = "cam_0" + cameraIdVal.charAt(6);
+        }
+
+        String finalCameraIdVal = cameraIdVal;
+        Camera camera = cameraRepository.findByCameraLoginId(finalCameraIdVal)
                 .orElseThrow(() -> new CustomException(ErrorCode.CAMERA_NOT_FOUND));
 
         ScenarioType scenarioType = mapToScenarioType(dto.type());
