@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Shield, 
   ArrowLeft,
@@ -12,6 +12,25 @@ import {
   Trash2,
   AlertCircle
 } from 'lucide-react';
+import {
+  checkEmailAvailability,
+  confirmSmsVerification,
+  resolveEmergencyJurisdiction,
+  type EmergencyJurisdictionResponse,
+  normalizePhoneNumber,
+  requestSmsVerification,
+  signupIndividual,
+} from '../../auth/api/authApi';
+import { AgreementDetailDialog } from '../components/AgreementDetailDialog';
+import { getAgreementById, type AgreementId } from '../data/agreements';
+import {
+  isValidEmail,
+  isValidPassword,
+  isValidPhoneNumber,
+  isValidVerificationCode,
+  PHONE_RULE_MESSAGE,
+  SIGNUP_PASSWORD_RULE_MESSAGE,
+} from '../utils/validation';
 
 interface PersonalSignUpProps {
   onBackToLogin: () => void;
@@ -51,6 +70,9 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
   const [verificationCode, setVerificationCode] = useState('');
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
   const [isCodeSent, setIsCodeSent] = useState(false);
+  const [verificationId, setVerificationId] = useState('');
+  const [verificationToken, setVerificationToken] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [targetName, setTargetName] = useState('');
   const [relation, setRelation] = useState('');
@@ -62,6 +84,9 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
   
   const [selectedDistrict, setSelectedDistrict] = useState('마포구');
   const [jurisdiction, setJurisdiction] = useState('마포소방서');
+  const [emergencyJurisdiction, setEmergencyJurisdiction] = useState<EmergencyJurisdictionResponse | null>(null);
+  const [jurisdictionStatus, setJurisdictionStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [jurisdictionError, setJurisdictionError] = useState('');
 
   // Emergency contact fields
   const [contactName, setContactName] = useState('');
@@ -73,13 +98,30 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [agreeMarketing, setAgreeMarketing] = useState(false);
+  const [selectedAgreementId, setSelectedAgreementId] = useState<AgreementId | null>(null);
 
-  // Sync selected district to jurisdiction
-  useEffect(() => {
-    if (JURISDICTION_DATA[selectedDistrict]) {
-      setJurisdiction(JURISDICTION_DATA[selectedDistrict].station);
+  const resolveJurisdiction = async (nextPostcode: string, nextAddress: string, nextAddressDetail = '') => {
+    setJurisdictionStatus('loading');
+    setJurisdictionError('');
+    setEmergencyJurisdiction(null);
+    setSelectedDistrict('');
+    setJurisdiction('');
+
+    try {
+      const result = await resolveEmergencyJurisdiction({
+        postcode: nextPostcode,
+        address: nextAddress,
+        addressDetail: nextAddressDetail,
+      });
+      setEmergencyJurisdiction(result);
+      setSelectedDistrict(result.district);
+      setJurisdiction(result.jurisdiction);
+      setJurisdictionStatus('success');
+    } catch (error) {
+      setJurisdictionStatus('error');
+      setJurisdictionError(error instanceof Error ? error.message : '관할 정보를 찾을 수 없습니다. 주소를 다시 선택해주세요.');
     }
-  }, [selectedDistrict]);
+  };
 
   // Load Daum Postcode script dynamically
   const handleSearchPostcode = () => {
@@ -88,12 +130,8 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
         oncomplete: (data: any) => {
           setPostcode(data.zonecode);
           setAddress(data.address);
-          
-          // Try to auto-match district from address
-          const matchedDistrict = Object.keys(JURISDICTION_DATA).find(dist => data.address.includes(dist));
-          if (matchedDistrict) {
-            setSelectedDistrict(matchedDistrict);
-          }
+          setAddressDetail('');
+          void resolveJurisdiction(data.zonecode, data.address, '');
         }
       }).open();
     };
@@ -108,27 +146,72 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
     }
   };
 
-  const handleSendCode = () => {
+  const handlePhoneChange = (value: string) => {
+    setPhone(value);
+    setVerificationCode('');
+    setIsPhoneVerified(false);
+    setIsCodeSent(false);
+    setVerificationId('');
+    setVerificationToken('');
+  };
+
+  const handleSendCode = async () => {
     if (!phone) {
       alert('휴대폰 번호를 입력하세요.');
       return;
     }
-    setIsCodeSent(true);
-    alert('인증번호 "123456"이 발송되었습니다.');
+    if (!isValidPhoneNumber(phone)) {
+      alert(PHONE_RULE_MESSAGE);
+      return;
+    }
+    try {
+      setIsSubmitting(true);
+      const response = await requestSmsVerification(normalizePhoneNumber(phone));
+      setVerificationId(response.verificationId);
+      setVerificationToken('');
+      setIsPhoneVerified(false);
+      setIsCodeSent(true);
+      alert('인증번호를 발송했습니다. 개발 환경 인증번호는 123456입니다.');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '인증번호 발송에 실패했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleVerifyCode = () => {
-    if (verificationCode === '123456') {
+  const handleVerifyCode = async () => {
+    if (!verificationId) {
+      alert('인증번호를 먼저 발송해주세요.');
+      return;
+    }
+    if (!verificationCode.trim()) {
+      alert('인증번호를 입력해주세요.');
+      return;
+    }
+    if (!isValidVerificationCode(verificationCode)) {
+      alert('인증번호는 숫자 6자리로 입력해주세요.');
+      return;
+    }
+    try {
+      setIsSubmitting(true);
+      const response = await confirmSmsVerification(verificationId, verificationCode.trim());
+      setVerificationToken(response.verificationToken);
       setIsPhoneVerified(true);
-      alert('본인 인증이 성공적으로 확인되었습니다.');
-    } else {
-      alert('인증번호가 일치하지 않습니다. "123456"을 입력해주세요.');
+      alert('본인 인증이 완료되었습니다.');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '인증번호 확인에 실패했습니다.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleAddEmergencyContact = () => {
     if (!contactName || !contactRelation || !contactPhone) {
       alert('비상 연락처 정보를 모두 입력해주세요.');
+      return;
+    }
+    if (!isValidPhoneNumber(contactPhone)) {
+      alert(`비상 연락처 ${PHONE_RULE_MESSAGE}`);
       return;
     }
     setEmergencyContacts(prev => [...prev, {
@@ -145,17 +228,41 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
     setEmergencyContacts(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
     if (step === 1) {
-      if (!email || !password || !passwordConfirm || !name) {
+      if (!email.trim() || !password || !passwordConfirm || !name.trim()) {
         alert('필수 계정 정보를 모두 입력하세요.');
+        return;
+      }
+      if (!isValidEmail(email)) {
+        alert('이메일 형식이 올바르지 않습니다. 예: user@example.com');
+        return;
+      }
+      if (!isValidPassword(password)) {
+        alert(SIGNUP_PASSWORD_RULE_MESSAGE);
         return;
       }
       if (password !== passwordConfirm) {
         alert('비밀번호가 서로 일치하지 않습니다.');
         return;
       }
-      setStep(2);
+      try {
+        setIsSubmitting(true);
+        const isAvailable = await checkEmailAvailability(email.trim());
+        if (!isAvailable) {
+          alert('이미 사용 중인 이메일입니다.');
+          return;
+        }
+        setStep(2);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : '이메일 중복 확인에 실패했습니다.');
+      } finally {
+        setIsSubmitting(false);
+      }
     } else if (step === 2) {
       if (!isPhoneVerified) {
         alert('휴대폰 본인 인증을 진행해주세요.');
@@ -163,8 +270,12 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
       }
       setStep(3);
     } else if (step === 3) {
-      if (!targetName || !relation || !ageGroup || !address) {
-        alert('보호 대상자 정보 및 주소를 모두 입력해주세요.');
+      if (!targetName.trim() || !relation || !ageGroup || !address || !addressDetail.trim()) {
+        alert('보호 대상자 정보와 설치 주소지, 상세 주소를 모두 입력해주세요.');
+        return;
+      }
+      if (!emergencyJurisdiction || jurisdictionStatus !== 'success') {
+        alert('관할 119센터 조회가 완료된 주소를 선택해주세요.');
         return;
       }
       setStep(4);
@@ -175,10 +286,51 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
         alert('필수 약관에 모두 동의하셔야 회원가입이 완료됩니다.');
         return;
       }
-      alert('개인용 회원가입이 성공적으로 완료되었습니다!');
-      onSignUpComplete();
+      if (!verificationToken) {
+        alert('휴대폰 본인 인증을 다시 진행해주세요.');
+        setStep(2);
+        return;
+      }
+      try {
+        setIsSubmitting(true);
+        await signupIndividual({
+          email: email.trim(),
+          password,
+          name: name.trim(),
+          phone: normalizePhoneNumber(phone),
+          verificationToken,
+          careTarget: {
+            name: targetName.trim(),
+            relation,
+            ageGroup,
+            postcode,
+            address,
+            addressDetail,
+            district: selectedDistrict,
+            jurisdiction,
+          },
+          emergencyContacts: emergencyContacts.map((contact) => ({
+            name: contact.name.trim(),
+            relation: contact.relation.trim(),
+            phone: normalizePhoneNumber(contact.phone),
+          })),
+          agreements: {
+            termsAgreed: agreeTerms,
+            privacyAgreed: agreePrivacy,
+            marketingAgreed: agreeMarketing,
+          },
+        });
+        alert('개인용 회원가입이 성공적으로 완료되었습니다!');
+        onSignUpComplete();
+      } catch (error) {
+        alert(error instanceof Error ? error.message : '회원가입 요청에 실패했습니다.');
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
+
+  const selectedAgreement = selectedAgreementId ? getAgreementById(selectedAgreementId) : undefined;
 
   return (
     <div className="min-h-screen bg-[#070e1b] text-slate-100 font-sans flex flex-col pb-12">
@@ -326,14 +478,15 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
                     <input
                       type="text"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => handlePhoneChange(e.target.value)}
                       placeholder="휴대폰 번호를 입력해주세요 (- 없이)"
                       className="flex-1 px-4 py-3 bg-[#070e1b] border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
                     />
                     <button
                       type="button"
                       onClick={handleSendCode}
-                      className="px-4 py-3 bg-blue-600/15 border border-blue-500/20 hover:bg-blue-600/30 text-blue-400 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                      disabled={isSubmitting}
+                      className="px-4 py-3 bg-blue-600/15 border border-blue-500/20 hover:bg-blue-600/30 disabled:bg-slate-800 disabled:text-slate-500 text-blue-400 font-bold rounded-xl text-xs transition-colors cursor-pointer disabled:cursor-not-allowed"
                     >
                       인증번호 발송
                     </button>
@@ -354,7 +507,8 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
                       <button
                         type="button"
                         onClick={handleVerifyCode}
-                        className="px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                        disabled={isSubmitting}
+                        className="px-5 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-400 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer disabled:cursor-not-allowed"
                       >
                         인증 확인
                       </button>
@@ -483,65 +637,48 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
                   </div>
                 </div>
 
-                {/* Right Interactive SVG Map Picker for Jurisdictions */}
-                <div className="space-y-4 flex flex-col justify-between">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-semibold text-slate-300">관할 응급 등록 (119)</label>
-                      <span className="text-[10px] text-blue-400 font-bold bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded">지도로 탐색 가능</span>
-                    </div>
-
-                    {/* District Dropdown Selector */}
-                    <div className="relative">
-                      <select
-                        value={selectedDistrict}
-                        onChange={(e) => setSelectedDistrict(e.target.value)}
-                        className="w-full px-4 py-3 bg-[#070e1b] border border-slate-800 rounded-xl text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer"
-                      >
-                        {Object.keys(JURISDICTION_DATA).map((dist) => (
-                          <option key={dist} value={dist}>{dist} ({JURISDICTION_DATA[dist].station})</option>
-                        ))}
-                      </select>
-                    </div>
+                <div className="space-y-4 flex flex-col">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-300">관할 응급 등록 (119)</label>
+                    <span className="text-[10px] text-blue-400 font-bold bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded">주소 기반 자동 조회</span>
                   </div>
 
-                  {/* Interactive SVG district Map picker */}
-                  <div className="relative aspect-square max-h-[220px] bg-[#070e1b] border border-slate-800/80 rounded-2xl flex items-center justify-center p-3 overflow-hidden shadow-inner self-center w-full">
-                    {/* Background Grid inside Map */}
-                    <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:12px_12px] opacity-15" />
-                    
-                    <svg className="w-full h-full" viewBox="0 0 350 250">
-                      {/* Simple outline of Seoul districts */}
-                      <g className="transition-all duration-300">
-                        {Object.entries(JURISDICTION_DATA).map(([dist, info]) => {
-                          const isSelected = selectedDistrict === dist;
-                          return (
-                            <path
-                              key={dist}
-                              d={info.path}
-                              fill={isSelected ? info.color : '#0f172a'}
-                              stroke={isSelected ? '#ffffff' : '#334155'}
-                              strokeWidth={isSelected ? '2' : '1'}
-                              className="cursor-pointer transition-all duration-200 hover:fill-blue-500/35"
-                              onClick={() => setSelectedDistrict(dist)}
-                              opacity={isSelected ? '0.75' : '0.55'}
-                            >
-                              <title>{dist} - {info.station}</title>
-                            </path>
-                          );
-                        })}
-                      </g>
-                    </svg>
-
-                    <div className="absolute bottom-2 left-2 bg-[#0c1626]/90 border border-slate-800 rounded px-2 py-1 text-[9px] text-slate-400 flex flex-col font-medium">
-                      <span>* 지도 구역을 클릭하면</span>
-                      <span>관할 소방서가 연동됩니다.</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-[#102038]/70 border border-blue-500/20 rounded-xl p-3 text-xs flex items-center justify-between">
-                    <span className="text-slate-400 font-semibold">선택한 지역 관할 소방소:</span>
-                    <span className="text-blue-400 font-extrabold tracking-wide">{jurisdiction}</span>
+                  <div className="min-h-[220px] bg-[#070e1b] border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-center">
+                    {jurisdictionStatus === 'idle' && (
+                      <p className="text-xs text-slate-500 font-semibold text-center">주소를 먼저 입력해주세요.</p>
+                    )}
+                    {jurisdictionStatus === 'loading' && (
+                      <p className="text-xs text-blue-300 font-bold text-center">관할 119센터 조회 중...</p>
+                    )}
+                    {jurisdictionStatus === 'error' && (
+                      <div className="space-y-2 text-center">
+                        <AlertCircle className="w-5 h-5 text-rose-400 mx-auto" />
+                        <p className="text-xs text-rose-300 font-bold">{jurisdictionError}</p>
+                        <p className="text-[10px] text-slate-500">주소를 다시 선택하면 관할 정보를 재조회합니다.</p>
+                      </div>
+                    )}
+                    {jurisdictionStatus === 'success' && emergencyJurisdiction && (
+                      <div className="space-y-3">
+                        <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3">
+                          <p className="text-[10px] font-bold text-blue-300">관할 소방서</p>
+                          <p className="mt-1 text-sm font-extrabold text-white">{emergencyJurisdiction.stationName || emergencyJurisdiction.jurisdiction}</p>
+                        </div>
+                        <div className="rounded-xl border border-slate-800 bg-[#0a1224] p-3 space-y-2 text-xs">
+                          <div className="flex justify-between gap-3">
+                            <span className="text-slate-500 font-semibold">119안전센터</span>
+                            <span className="text-slate-200 font-bold text-right">{emergencyJurisdiction.centerName || '-'}</span>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <span className="text-slate-500 font-semibold">소방서 주소</span>
+                            <span className="text-slate-300 text-right">{emergencyJurisdiction.stationAddress || '-'}</span>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <span className="text-slate-500 font-semibold">지역</span>
+                            <span className="text-blue-300 font-bold">{emergencyJurisdiction.district}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -653,7 +790,7 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
                   </label>
                   <button
                     type="button"
-                    onClick={() => alert('서비스 이용약관 상세 내용 팝업')}
+                    onClick={() => setSelectedAgreementId('terms')}
                     className="text-[10px] text-slate-400 hover:text-white font-medium hover:underline bg-[#0c1626] border border-slate-800 px-2.5 py-1 rounded-md"
                   >
                     내용 보기
@@ -673,7 +810,7 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
                   </label>
                   <button
                     type="button"
-                    onClick={() => alert('개인정보 동의 상세 내용 팝업')}
+                    onClick={() => setSelectedAgreementId('privacy')}
                     className="text-[10px] text-slate-400 hover:text-white font-medium hover:underline bg-[#0c1626] border border-slate-800 px-2.5 py-1 rounded-md"
                   >
                     내용 보기
@@ -693,7 +830,7 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
                   </label>
                   <button
                     type="button"
-                    onClick={() => alert('마케팅 수신 상세 내용 팝업')}
+                    onClick={() => setSelectedAgreementId('marketing')}
                     className="text-[10px] text-slate-400 hover:text-white font-medium hover:underline bg-[#0c1626] border border-slate-800 px-2.5 py-1 rounded-md"
                   >
                     내용 보기
@@ -719,14 +856,24 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
             <button
               type="button"
               onClick={handleNextStep}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-600/10 transition-all flex items-center gap-1.5 cursor-pointer"
+              disabled={isSubmitting}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-400 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-600/10 transition-all flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
             >
-              {step === 5 ? '가입 완료' : '다음 단계'}
+              {isSubmitting ? '처리 중...' : step === 5 ? '가입 완료' : '다음 단계'}
             </button>
           </div>
 
         </div>
       </main>
+      <AgreementDetailDialog
+        agreement={selectedAgreement}
+        open={selectedAgreementId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedAgreementId(null);
+          }
+        }}
+      />
     </div>
   );
 }

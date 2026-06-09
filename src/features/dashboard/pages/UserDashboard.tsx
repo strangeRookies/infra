@@ -4,7 +4,7 @@ import type { Inquiry } from '../../../shared/types/inquiry';
 import { useAiAlertActions } from '../../../hooks/useAiAlertActions';
 import { useDashboardAlerts } from '../hooks/useDashboardAlerts';
 import { useLiveCameras } from '../hooks/useLiveCameras';
-import type { MenuId, MypageTab, RegisteredCamera, InquiryCategory, IncidentAlert } from '../types/dashboard';
+import type { MenuId, RegisteredCamera, InquiryCategory, IncidentAlert } from '../types/dashboard';
 import {
   ALL_MENU_ITEMS,
   CATEGORIES,
@@ -51,20 +51,7 @@ export function NurseDashboard({
   const [newCamPassword, setNewCamPassword] = useState('');
   const [showNewCamPw, setShowNewCamPw] = useState(false);
   const [showCamPwId, setShowCamPwId] = useState<string | null>(null);
-  const [mypageTab, setMypageTab] = useState<MypageTab>('profile');
-  const [profileName, setProfileName] = useState(username || '사용자');
-  const [profileEmail, setProfileEmail] = useState(`${username || 'user'}@example.com`);
-  const [profilePhone, setProfilePhone] = useState('010-1234-5678');
-  const [currentPw, setCurrentPw] = useState('');
-  const [newPw, setNewPw] = useState('');
-  const [confirmPw, setConfirmPw] = useState('');
-  const [showCurrentPw, setShowCurrentPw] = useState(false);
-  const [showNewPw, setShowNewPw] = useState(false);
-  const [showConfirmPw, setShowConfirmPw] = useState(false);
-  const [notifEvent, setNotifEvent] = useState(true);
-  const [notifEmail, setNotifEmail] = useState(true);
-  const [notifSms, setNotifSms] = useState(false);
-  const [alertLevel, setAlertLevel] = useState<'all' | 'warning' | 'critical'>('warning');
+
   const [selectedQnaId, setSelectedQnaId] = useState<string | null>(null);
   const [showNewQnaModal, setShowNewQnaModal] = useState(false);
   const [qnaTitle, setQnaTitle] = useState('');
@@ -153,26 +140,7 @@ export function NurseDashboard({
     setShowNewQnaModal(false);
   };
 
-  const handleSaveProfile = () => alert('프로필을 저장했습니다.');
-  const handleChangePassword = () => {
-    if (!currentPw) {
-      alert('현재 비밀번호를 입력해 주세요.');
-      return;
-    }
-    if (newPw.length < 8) {
-      alert('새 비밀번호는 8자 이상이어야 합니다.');
-      return;
-    }
-    if (newPw !== confirmPw) {
-      alert('새 비밀번호가 서로 일치하지 않습니다.');
-      return;
-    }
-    alert('비밀번호를 변경했습니다.');
-    setCurrentPw('');
-    setNewPw('');
-    setConfirmPw('');
-  };
-  const handleSaveNotifications = () => alert('알림 설정을 저장했습니다.');
+
 
   const selectedCameraObj = selectedIncident
     ? liveCameras.find((camera) => camera.name === selectedIncident.camera || camera.location === selectedIncident.camera)
@@ -339,39 +307,8 @@ export function NurseDashboard({
           )}
           {activeMenu === 'mypage' && (
             <DashboardMyPageView
-              alertLevel={alertLevel}
-              confirmPw={confirmPw}
-              currentPw={currentPw}
-              mypageTab={mypageTab}
-              newPw={newPw}
-              notifEmail={notifEmail}
-              notifEvent={notifEvent}
-              notifSms={notifSms}
-              profileEmail={profileEmail}
-              profileName={profileName}
-              profilePhone={profilePhone}
-              showConfirmPw={showConfirmPw}
-              showCurrentPw={showCurrentPw}
-              showNewPw={showNewPw}
               userType={userType}
               username={username}
-              onAlertLevelChange={setAlertLevel}
-              onChangePassword={handleChangePassword}
-              onConfirmPwChange={setConfirmPw}
-              onCurrentPwChange={setCurrentPw}
-              onMypageTabChange={setMypageTab}
-              onNotifEmailChange={setNotifEmail}
-              onNotifEventChange={setNotifEvent}
-              onNotifSmsChange={setNotifSms}
-              onNewPwChange={setNewPw}
-              onProfileEmailChange={setProfileEmail}
-              onProfileNameChange={setProfileName}
-              onProfilePhoneChange={setProfilePhone}
-              onSaveNotifications={handleSaveNotifications}
-              onSaveProfile={handleSaveProfile}
-              onToggleConfirmPw={() => setShowConfirmPw((prev) => !prev)}
-              onToggleCurrentPw={() => setShowCurrentPw((prev) => !prev)}
-              onToggleNewPw={() => setShowNewPw((prev) => !prev)}
             />
           )}
           {activeMenu === 'qna' && (
