@@ -60,6 +60,51 @@ class EmergencyJurisdictionControllerTest {
     }
 
     @Test
+    void resolveReturnsRegionalRepresentativeJurisdiction() throws Exception {
+        mockMvc.perform(post("/api/emergency-jurisdictions/resolve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "postcode": "48095",
+                                  "address": "부산광역시 해운대구 해운대해변로 100"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.district").value("해운대구"))
+                .andExpect(jsonPath("$.data.jurisdiction").value("해운대소방서"));
+    }
+
+    @Test
+    void resolvePrefersLongProvinceAliasForDuplicateRegionName() throws Exception {
+        mockMvc.perform(post("/api/emergency-jurisdictions/resolve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "postcode": "12738",
+                                  "address": "경기도 광주시 행정타운로 50"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.district").value("광주시"))
+                .andExpect(jsonPath("$.data.jurisdiction").value("광주소방서"));
+    }
+
+    @Test
+    void resolveSupportsProvinceAbbreviation() throws Exception {
+        mockMvc.perform(post("/api/emergency-jurisdictions/resolve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "postcode": "63208",
+                                  "address": "제주 제주시 중앙로 1"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.district").value("제주시"))
+                .andExpect(jsonPath("$.data.jurisdiction").value("제주소방서"));
+    }
+
+    @Test
     void resolveReturnsNotFoundForUnknownAddress() throws Exception {
         mockMvc.perform(post("/api/emergency-jurisdictions/resolve")
                         .contentType(MediaType.APPLICATION_JSON)
