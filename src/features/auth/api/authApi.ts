@@ -11,7 +11,8 @@ export const AUTH_STORAGE_KEYS = {
 } as const;
 
 export interface SmsVerificationRequestResponse {
-  verificationId: string;
+  verificationId: number | string;
+  expiresIn?: number;
 }
 
 export interface SmsVerificationConfirmResponse {
@@ -160,7 +161,7 @@ export async function requestSmsVerification(phone: string) {
   });
 }
 
-export async function confirmSmsVerification(verificationId: string, code: string) {
+export async function confirmSmsVerification(verificationId: number | string, code: string) {
   return apiRequest<SmsVerificationConfirmResponse>('/api/auth/verifications/sms/confirm', {
     method: 'POST',
     body: {

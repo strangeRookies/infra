@@ -50,7 +50,7 @@ export function CorporateSignUp({ onBackToLogin, onSignUpComplete }: CorporateSi
   const [verificationCode, setVerificationCode] = useState('');
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
   const [isCodeSent, setIsCodeSent] = useState(false);
-  const [verificationId, setVerificationId] = useState('');
+  const [verificationId, setVerificationId] = useState<number | string>('');
   const [verificationToken, setVerificationToken] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -161,9 +161,17 @@ export function CorporateSignUp({ onBackToLogin, onSignUpComplete }: CorporateSi
       setVerificationToken('');
       setIsPhoneVerified(false);
       setIsCodeSent(true);
-      alert('인증번호를 발송했습니다. 개발 환경 인증번호는 123456입니다.');
+      alert('인증번호를 발송했습니다. 개발 환경에서는 백엔드 서버 로그에서 인증번호를 확인해주세요.');
     } catch (error) {
-      alert(error instanceof Error ? error.message : '인증번호 발송에 실패했습니다.');
+      if (error instanceof ApiError && error.code === 'SMS_RATE_LIMITED') {
+        alert('인증번호를 너무 자주 요청했습니다. 잠시 후 다시 시도해주세요.');
+      } else if (error instanceof ApiError && error.code === 'SMS_SEND_FAILED') {
+        alert('인증번호 발송에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      } else if (error instanceof ApiError && error.status >= 500) {
+        alert('인증번호 발송 처리 중 서버 오류가 발생했습니다. 백엔드 서버 로그에서 SMS 설정 또는 Mock 인증번호 생성 상태를 확인해주세요.');
+      } else {
+        alert(error instanceof Error ? error.message : '인증번호 발송에 실패했습니다.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -466,7 +474,7 @@ export function CorporateSignUp({ onBackToLogin, onSignUpComplete }: CorporateSi
                         type="text"
                         value={verificationCode}
                         onChange={(e) => setVerificationCode(e.target.value)}
-                        placeholder="인증번호 6자리 (123456)"
+                        placeholder="인증번호 6자리"
                         className="flex-1 px-4 py-3 bg-[#070e1b] border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 font-mono"
                       />
                       <button
