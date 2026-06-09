@@ -106,7 +106,6 @@ public class SmsProperties {
     public static class RateLimit {
         private long resendCooldownSeconds = 60;
         private long dailyLimitPerPhone = 5;
-        private long dailyLimitPerIp = 20;
 
         public long getResendCooldownSeconds() {
             return resendCooldownSeconds;
@@ -124,12 +123,5 @@ public class SmsProperties {
             this.dailyLimitPerPhone = dailyLimitPerPhone;
         }
 
-        public long getDailyLimitPerIp() {
-            return dailyLimitPerIp;
-        }
-
-        public void setDailyLimitPerIp(long dailyLimitPerIp) {
-            this.dailyLimitPerIp = dailyLimitPerIp;
-        }
     }
 }

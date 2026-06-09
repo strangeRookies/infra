@@ -11,6 +11,4 @@ public interface SmsVerificationRepository extends JpaRepository<SmsVerification
     boolean existsByPhoneNumberAndCreatedAtAfter(String phoneNumber, LocalDateTime createdAt);
 
     long countByPhoneNumberAndCreatedAtAfter(String phoneNumber, LocalDateTime createdAt);
-
-    long countByRequestIpAndCreatedAtAfter(String requestIp, LocalDateTime createdAt);
 }

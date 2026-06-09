@@ -35,12 +35,8 @@ public class SmsVerificationService {
     private final SmsProperties smsProperties;
 
     public SmsVerificationResponse send(SmsVerificationRequest request) {
-        return send(request, null);
-    }
-
-    public SmsVerificationResponse send(SmsVerificationRequest request, String requestIp) {
         String phoneNumber = normalizePhone(request.phone());
-        validateRateLimit(phoneNumber, requestIp);
+        validateRateLimit(phoneNumber);
 
         String code = smsCodeGenerator.generate();
         String message = smsProperties.getMessage().getVerificationTemplate().replace("{code}", code);
@@ -49,8 +45,7 @@ public class SmsVerificationService {
         SmsVerification verification = SmsVerification.issue(
                 phoneNumber, request.purpose(),
                 passwordEncoder.encode(code),
-                Instant.now().plusSeconds(CODE_EXPIRATION_SECONDS),
-                normalizeIp(requestIp)
+                Instant.now().plusSeconds(CODE_EXPIRATION_SECONDS)
         );
         SmsVerification saved = smsVerificationRepository.save(verification);
         return new SmsVerificationResponse(saved.getId(), CODE_EXPIRATION_SECONDS);
@@ -88,7 +83,7 @@ public class SmsVerificationService {
         return phone == null ? null : phone.replaceAll("[^0-9]", "");
     }
 
-    private void validateRateLimit(String phoneNumber, String requestIp) {
+    private void validateRateLimit(String phoneNumber) {
         SmsProperties.RateLimit rateLimit = smsProperties.getRateLimit();
         LocalDateTime now = LocalDateTime.now();
         if (rateLimit.getResendCooldownSeconds() > 0
@@ -101,12 +96,6 @@ public class SmsVerificationService {
                 >= rateLimit.getDailyLimitPerPhone()) {
             throw new CustomException(ErrorCode.SMS_RATE_LIMITED);
         }
-        String normalizedIp = normalizeIp(requestIp);
-        if (normalizedIp != null && rateLimit.getDailyLimitPerIp() > 0
-                && smsVerificationRepository.countByRequestIpAndCreatedAtAfter(normalizedIp, now.minusDays(1))
-                >= rateLimit.getDailyLimitPerIp()) {
-            throw new CustomException(ErrorCode.SMS_RATE_LIMITED);
-        }
     }
 
     private void sendMessage(String phoneNumber, String message) {
@@ -117,7 +106,4 @@ public class SmsVerificationService {
         }
     }
 
-    private String normalizeIp(String requestIp) {
-        return requestIp == null || requestIp.isBlank() ? null : requestIp.trim();
-    }
 }

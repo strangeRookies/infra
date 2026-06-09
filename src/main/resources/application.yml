@@ -52,7 +52,6 @@ sms:
   rate-limit:
     resend-cooldown-seconds: ${SMS_RESEND_COOLDOWN_SECONDS:60}
     daily-limit-per-phone: ${SMS_DAILY_LIMIT_PER_PHONE:5}
-    daily-limit-per-ip: ${SMS_DAILY_LIMIT_PER_IP:20}
 
 app:
   websocket:

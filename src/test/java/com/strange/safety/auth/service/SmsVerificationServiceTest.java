@@ -79,7 +79,7 @@ class SmsVerificationServiceTest {
         when(repository.existsByPhoneNumberAndCreatedAtAfter(any(String.class), any())).thenReturn(true);
 
         assertThatThrownBy(() -> service.send(
-                new SmsVerificationRequest("010-1234-5678", VerificationPurpose.SIGN_UP), "127.0.0.1"))
+                new SmsVerificationRequest("010-1234-5678", VerificationPurpose.SIGN_UP)))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.SMS_RATE_LIMITED);
@@ -91,7 +91,7 @@ class SmsVerificationServiceTest {
                 .when(smsSender).send(any(String.class), any(String.class));
 
         assertThatThrownBy(() -> service.send(
-                new SmsVerificationRequest("010-1234-5678", VerificationPurpose.SIGN_UP), "127.0.0.1"))
+                new SmsVerificationRequest("010-1234-5678", VerificationPurpose.SIGN_UP)))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.SMS_SEND_FAILED);
