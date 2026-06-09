@@ -14,6 +14,8 @@ import {
   checkBusinessNumberAvailability,
   checkEmailAvailability,
   confirmSmsVerification,
+  resolveEmergencyJurisdiction,
+  type EmergencyJurisdictionResponse,
   normalizeBusinessNumber,
   normalizePhoneNumber,
   requestSmsVerification,
@@ -51,6 +53,9 @@ export function CorporateSignUp({ onBackToLogin, onSignUpComplete }: CorporateSi
   const [addressDetail, setAddressDetail] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('강남구');
   const [jurisdiction, setJurisdiction] = useState('강남소방서');
+  const [emergencyJurisdiction, setEmergencyJurisdiction] = useState<EmergencyJurisdictionResponse | null>(null);
+  const [jurisdictionStatus, setJurisdictionStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [jurisdictionError, setJurisdictionError] = useState('');
 
   const [managerName, setManagerName] = useState('');
   const [managerDept, setManagerDept] = useState('');
@@ -63,6 +68,29 @@ export function CorporateSignUp({ onBackToLogin, onSignUpComplete }: CorporateSi
   const [agreeMarketing, setAgreeMarketing] = useState(false);
   const [selectedAgreementId, setSelectedAgreementId] = useState<AgreementId | null>(null);
 
+  const resolveJurisdiction = async (nextPostcode: string, nextAddress: string, nextAddressDetail = '') => {
+    setJurisdictionStatus('loading');
+    setJurisdictionError('');
+    setEmergencyJurisdiction(null);
+    setSelectedDistrict('');
+    setJurisdiction('');
+
+    try {
+      const result = await resolveEmergencyJurisdiction({
+        postcode: nextPostcode,
+        address: nextAddress,
+        addressDetail: nextAddressDetail,
+      });
+      setEmergencyJurisdiction(result);
+      setSelectedDistrict(result.district);
+      setJurisdiction(result.jurisdiction);
+      setJurisdictionStatus('success');
+    } catch (error) {
+      setJurisdictionStatus('error');
+      setJurisdictionError(error instanceof Error ? error.message : '관할 정보를 찾을 수 없습니다. 주소를 다시 선택해주세요.');
+    }
+  };
+
   // Load Daum Postcode script dynamically
   const handleSearchPostcode = () => {
     const callback = () => {
@@ -70,14 +98,8 @@ export function CorporateSignUp({ onBackToLogin, onSignUpComplete }: CorporateSi
         oncomplete: (data: any) => {
           setPostcode(data.zonecode);
           setAddress(data.address);
-          
-          // Try to auto-match district
-          const districts = ['강남구', '서초구', '송파구', '마포구', '영등포구', '용산구', '종로구', '성동구', '강서구', '동대문구'];
-          const matched = districts.find(dist => data.address.includes(dist));
-          if (matched) {
-            setSelectedDistrict(matched);
-            setJurisdiction(`${matched.replace('구', '')}소방서`);
-          }
+          setAddressDetail('');
+          void resolveJurisdiction(data.zonecode, data.address, '');
         }
       }).open();
     };
@@ -172,6 +194,10 @@ export function CorporateSignUp({ onBackToLogin, onSignUpComplete }: CorporateSi
     } else if (step === 2) {
       if (!companyName || !businessNumber || !industry || !companySize || !address) {
         alert('기업 필수 정보를 모두 입력해주세요.');
+        return;
+      }
+      if (!emergencyJurisdiction || jurisdictionStatus !== 'success') {
+        alert('관할 119센터 조회가 완료된 주소를 선택해주세요.');
         return;
       }
       try {
@@ -488,28 +514,46 @@ export function CorporateSignUp({ onBackToLogin, onSignUpComplete }: CorporateSi
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-300">관할 응급 등록(119)</label>
-                  <select
-                    value={selectedDistrict}
-                    onChange={(e) => {
-                      setSelectedDistrict(e.target.value);
-                      setJurisdiction(`${e.target.value.replace('구', '')}소방서`);
-                    }}
-                    className="w-full px-4 py-3 bg-[#070e1b] border border-slate-800 rounded-xl text-xs text-slate-300"
-                  >
-                    <option value="강남구">강남구 (강남소방서)</option>
-                    <option value="서초구">서초구 (서초소방서)</option>
-                    <option value="송파구">송파구 (송파소방서)</option>
-                    <option value="마포구">마포구 (마포소방서)</option>
-                    <option value="영등포구">영등포구 (영등포소방서)</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2 flex flex-col justify-end">
-                  <div className="bg-[#102232] border border-emerald-500/20 rounded-xl p-3.5 text-xs text-emerald-400 font-extrabold flex justify-between items-center">
-                    <span>관할 소방 구역:</span>
-                    <span>{jurisdiction}</span>
+                <div className="sm:col-span-2 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-300">관할 응급 등록(119)</label>
+                    <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">주소 기반 자동 조회</span>
+                  </div>
+                  <div className="rounded-xl border border-slate-800 bg-[#070e1b] p-4">
+                    {jurisdictionStatus === 'idle' && (
+                      <p className="text-xs text-slate-500 font-semibold">주소를 먼저 입력해주세요.</p>
+                    )}
+                    {jurisdictionStatus === 'loading' && (
+                      <p className="text-xs text-emerald-300 font-bold">관할 119센터 조회 중...</p>
+                    )}
+                    {jurisdictionStatus === 'error' && (
+                      <div className="space-y-1">
+                        <p className="text-xs text-rose-300 font-bold">{jurisdictionError}</p>
+                        <p className="text-[10px] text-slate-500">주소를 다시 선택하면 관할 정보를 재조회합니다.</p>
+                      </div>
+                    )}
+                    {jurisdictionStatus === 'success' && emergencyJurisdiction && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3">
+                          <p className="text-[10px] font-bold text-emerald-300">관할 소방서</p>
+                          <p className="mt-1 text-sm font-extrabold text-white">{emergencyJurisdiction.stationName || emergencyJurisdiction.jurisdiction}</p>
+                        </div>
+                        <div className="rounded-lg border border-slate-800 bg-[#0a1224] p-3 space-y-1.5">
+                          <div className="flex justify-between gap-3">
+                            <span className="text-slate-500 font-semibold">119안전센터</span>
+                            <span className="text-slate-200 font-bold text-right">{emergencyJurisdiction.centerName || '-'}</span>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <span className="text-slate-500 font-semibold">지역</span>
+                            <span className="text-emerald-300 font-bold">{emergencyJurisdiction.district}</span>
+                          </div>
+                        </div>
+                        <div className="sm:col-span-2 rounded-lg border border-slate-800 bg-[#0a1224] p-3">
+                          <p className="text-[10px] font-bold text-slate-500">소방서 주소</p>
+                          <p className="mt-1 text-xs text-slate-300">{emergencyJurisdiction.stationAddress || '-'}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

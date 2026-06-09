@@ -37,6 +37,22 @@ export interface AgreementPayload {
   marketingAgreed: boolean;
 }
 
+export interface EmergencyJurisdictionRequest {
+  postcode: string;
+  address: string;
+  addressDetail: string;
+}
+
+export interface EmergencyJurisdictionResponse {
+  district: string;
+  jurisdiction: string;
+  stationName: string;
+  centerName: string;
+  stationAddress: string;
+  latitude: number | null;
+  longitude: number | null;
+}
+
 export interface IndividualSignupPayload {
   email: string;
   password: string;
@@ -172,6 +188,13 @@ export async function signupIndividual(payload: IndividualSignupPayload) {
 
 export async function signupCorporate(payload: CorporateSignupPayload) {
   return apiRequest<unknown>('/api/auth/signup/corporate', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function resolveEmergencyJurisdiction(payload: EmergencyJurisdictionRequest) {
+  return apiRequest<EmergencyJurisdictionResponse>('/api/emergency-jurisdictions/resolve', {
     method: 'POST',
     body: payload,
   });
