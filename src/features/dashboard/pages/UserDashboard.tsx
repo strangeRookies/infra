@@ -13,7 +13,7 @@ import hospitalHallwayCctv from '../../../assets/hospital_hallway_cctv.png';
 import type { Inquiry } from '../../../shared/types/inquiry';
 import { AiDangerPanel } from '../../../components/dashboard/AiDangerPanel';
 import { useAiAlertActions } from '../../../hooks/useAiAlertActions';
-import { aiEventKey, findCameraForAiEvent, getEventTypeKorean } from '../../../shared/utils/aiAlerts';
+import { aiEventFingerprint, findCameraForAiEvent, getEventTypeKorean, getSeverityTone } from '../../../shared/utils/aiAlerts';
 
 interface NurseDashboardProps {
   username: string;
@@ -41,13 +41,7 @@ interface RegisteredCamera {
   password?: string;
 }
 
-const INITIAL_ALERTS: IncidentAlert[] = [
-  { id: 'evt-1', time: new Date(Date.now() - 2 * 60 * 1000).toTimeString().split(' ')[0], timestamp: Date.now() - 2 * 60 * 1000, camera: '복도 A', type: 'FALL', label: 'FALL (낙상) 감지', severity: 'critical', status: 'new' },
-  { id: 'evt-2', time: new Date(Date.now() - 6 * 60 * 1000).toTimeString().split(' ')[0], timestamp: Date.now() - 6 * 60 * 1000, camera: '방 1', type: 'FAINT', label: 'FAINT (실신) 감지', severity: 'warning', status: 'new' },
-  { id: 'evt-3', time: new Date(Date.now() - 15 * 60 * 1000).toTimeString().split(' ')[0], timestamp: Date.now() - 15 * 60 * 1000, camera: '대기실 1', type: 'CROWD', label: 'CROWD (혼잡) 감지', severity: 'info', status: 'resolved' },
-  { id: 'evt-4', time: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toTimeString().split(' ')[0], timestamp: Date.now() - 2 * 24 * 60 * 60 * 1000, camera: '출입구', type: 'CROWD', label: 'CROWD (혼잡) 감지', severity: 'info', status: 'resolved' },
-  { id: 'evt-5', time: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toTimeString().split(' ')[0], timestamp: Date.now() - 12 * 24 * 60 * 60 * 1000, camera: '후문', type: 'FIRE', label: 'FIRE (화재 연기) 감지', severity: 'critical', status: 'resolved' },
-];
+const INITIAL_ALERTS: IncidentAlert[] = [];
 
 const INITIAL_CAMERAS: RegisteredCamera[] = [
   { id: 'CCTV-01', name: '방 1',   location: '1층', password: 'cam1234' },
@@ -131,9 +125,10 @@ export function NurseDashboard({ username, userType, onLogout, inquiries, onAddI
     focusAiEventCamera,
     handleConfirmAiEvent,
     setFocusedCameraId,
+    connectionState,
   } = useAiAlertActions({ userType, username, liveCameras, focusHome });
 
-  // Synchronize real AI danger events with the alerts state
+  // Synchronize real AI danger events with the alerts state (fingerprint-based)
   useEffect(() => {
     if (dangerAiEvents.length === 0) return;
 
@@ -141,50 +136,37 @@ export function NurseDashboard({ username, userType, onLogout, inquiries, onAddI
       let updated = [...prev];
       let changed = false;
 
-      // 1. Process new AI events
       dangerAiEvents.forEach(event => {
-        const key = aiEventKey(event);
-        const exists = updated.some(a => a.id === key);
+        const fp = aiEventFingerprint(event);
+        const exists = updated.some(a => a.id === fp);
 
         if (!exists) {
           const cameraObj = findCameraForAiEvent(liveCameras, event);
           const cameraName = cameraObj ? cameraObj.name : event.camera_id;
-          
           const timeString = new Date(event.timestamp * 1000).toTimeString().split(' ')[0];
-          
           const eventType = event.event_type.toUpperCase();
           const label = `${eventType} (${getEventTypeKorean(event.event_type)}) 감지`;
-          
-          const severityMap: Record<string, 'critical' | 'warning' | 'info'> = {
-            'CRITICAL': 'critical',
-            'HIGH': 'critical',
-            'MEDIUM': 'warning',
-            'LOW': 'info'
-          };
-          const severity = severityMap[event.severity.toUpperCase()] || 'critical';
-          const isAcknowledged = acknowledgedAiEventIds.has(key);
+          const severity = getSeverityTone(event.severity);
+          const isAcknowledged = acknowledgedAiEventIds.has(fp);
 
           const newAlert: IncidentAlert = {
-            id: key,
+            id: fp,
             time: timeString,
             timestamp: event.timestamp * 1000,
             camera: cameraName,
             type: eventType,
-            label: label,
-            severity: severity,
-            status: isAcknowledged ? 'resolved' : 'new'
+            label,
+            severity,
+            status: isAcknowledged ? 'resolved' : 'new',
           };
-          
-          // Prepend new alert
           updated = [newAlert, ...updated];
           changed = true;
         }
       });
 
-      // 2. Sync acknowledgment status
+      // Sync acknowledgment status
       updated = updated.map(a => {
-        const isAcknowledged = acknowledgedAiEventIds.has(a.id);
-        if (isAcknowledged && a.status === 'new') {
+        if (acknowledgedAiEventIds.has(a.id) && a.status === 'new') {
           changed = true;
           return { ...a, status: 'resolved' as const };
         }
@@ -249,7 +231,7 @@ export function NurseDashboard({ username, userType, onLogout, inquiries, onAddI
   const handleResolveAlert = (id: string) => {
     setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: 'resolved' as const } : a));
     if (id.includes(':')) {
-      const matchingEvent = dangerAiEvents.find(e => aiEventKey(e) === id);
+      const matchingEvent = dangerAiEvents.find(e => aiEventFingerprint(e) === id);
       if (matchingEvent) {
         handleConfirmAiEvent(matchingEvent);
       }
@@ -333,6 +315,20 @@ export function NurseDashboard({ username, userType, onLogout, inquiries, onAddI
           <div className="flex items-center gap-2 bg-rose-500/10 border border-rose-500/20 px-3 py-1 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
             <span className="text-[10px] font-bold text-rose-400">최근 10분 알림: {activeTenMinAlerts.length}건</span>
+          </div>
+          <div className="flex items-center gap-2 ml-2 px-2 py-0.5 rounded text-[10px] font-bold"
+            style={{
+              color: connectionState === 'connected' ? '#34d399' :
+                connectionState === 'connecting' ? '#fbbf24' : '#94a3b8',
+            }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{
+              background: connectionState === 'connected' ? '#34d399' :
+                connectionState === 'connecting' ? '#fbbf24' : '#64748b',
+            }} />
+            {connectionState === 'connected' ? '실시간 모니터링 중' :
+              connectionState === 'connecting' ? '이벤트 채널 연결 중' :
+              connectionState === 'disconnected' ? '이벤트 채널 재연결 대기' : '대기 중'}
           </div>
           <div className="flex items-center gap-2.5">
             <div className="text-right">
@@ -478,22 +474,6 @@ export function NurseDashboard({ username, userType, onLogout, inquiries, onAddI
                       acknowledgedEventIds={acknowledgedAiEventIds}
                       onFocus={focusAiEventCamera}
                       onConfirm={handleConfirmAiEvent}
-                      fallback={alerts.slice(0, 5).map(evt => (
-                        <div key={evt.id} className={`bg-[#0f172a] rounded-xl p-3 flex items-center gap-3 ${evt.status === 'resolved' ? 'opacity-50' : ''}`}>
-                          <div className="w-12 h-12 bg-[#374151] rounded-lg flex-shrink-0 overflow-hidden">
-                            <div className="flex h-full w-full items-center justify-center bg-slate-900 text-[9px] font-bold text-slate-500">LIVE</div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white font-bold text-sm leading-tight cursor-pointer hover:underline truncate" onClick={() => setSelectedIncident(evt)}>{evt.type} 감지</p>
-                            <p className="text-[#cbd5e1] text-xs mt-0.5">{evt.time}</p>
-                          </div>
-                          {evt.status === 'new' ? (
-                            <button onClick={() => handleResolveAlert(evt.id)} className={`${eventButtonStyle(evt.severity)} text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex-shrink-0 cursor-pointer`}>확인</button>
-                          ) : (
-                            <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                          )}
-                        </div>
-                      ))}
                     />
                   </div>
                 </div>

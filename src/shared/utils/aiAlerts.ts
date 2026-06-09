@@ -16,6 +16,23 @@ export function aiEventKey(event: AiEvent) {
   return `${event.camera_id}:${event.event_type}:${event.timestamp}:${trackId}`;
 }
 
+// Re-export stable fingerprint from aiEventFeed so callers can import from one place
+export { aiEventFingerprint } from './aiEventFeed';
+
+export function formatAiEventLabel(event: AiEvent): string {
+  const upper = event.event_type.trim().toUpperCase();
+  const korean = getEventTypeKorean(event.event_type);
+  return `${upper} (${korean}) 감지`;
+}
+
+export function getSeverityTone(severity: string): 'critical' | 'warning' | 'info' {
+  const upper = severity.toUpperCase();
+  if (upper === 'CRITICAL' || upper === 'HIGH') return 'critical';
+  if (upper === 'MEDIUM') return 'warning';
+  return 'info';
+}
+
+
 export function findCameraForAiEvent(cameras: readonly LiveCamera[], event: AiEvent) {
   const eventTokens = cameraIdTokens(event.camera_id);
   return cameras.find(camera => {

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 import { SimpleStompClient } from '../shared/utils/stomp';
+import { aiEventFingerprint, reduceAiEventFeed, STALE_EVENT_WINDOW_MS } from '../shared/utils/aiEventFeed';
 
 const unknownRecordSchema = z.record(z.string(), z.unknown());
 const aiEventSchema = z.object({
@@ -31,12 +32,67 @@ export interface AiEvent {
   readonly severity: string;
 }
 
+export type AiConnectionState = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error';
+
+export interface AiEventFeedState {
+  readonly events: readonly AiEvent[];
+  readonly connectionState: AiConnectionState;
+  readonly lastEventAt: number | null;
+}
+
 interface UseAiEventsOptions {
   readonly url?: string;
   readonly enabled?: boolean;
 }
 
-export function useAiEvents(input: string | UseAiEventsOptions = {}) {
+// Periodically prune stale events so UI clears itself when feed goes quiet
+const PRUNE_INTERVAL_MS = 5_000;
+
+function normalizeRawPayload(raw: Record<string, unknown>) {
+  const timestampVal =
+    typeof raw.timestamp === 'string'
+      ? Math.floor(new Date(raw.timestamp as string).getTime() / 1000)
+      : typeof raw.timestamp === 'number'
+        ? (raw.timestamp as number)
+        : Math.floor(Date.now() / 1000);
+
+  return {
+    camera_id: (raw.camera_id ?? raw.cameraId) as string,
+    event_type: (raw.event_type ?? raw.type) as string,
+    timestamp: timestampVal,
+    severity: (raw.severity ?? 'HIGH') as string,
+    frame_idx: (raw.frame_idx ?? 0) as number,
+    score: (raw.score ?? 0) as number,
+    confidence: (raw.confidence ?? 0) as number,
+    boxes: (raw.boxes ?? []) as Record<string, unknown>[],
+    bbox: raw.bbox ?? null,
+    threshold: (raw.threshold ?? 0) as number,
+    track_id: raw.track_id ?? null,
+  };
+}
+
+function parseToAiEvent(raw: Record<string, unknown>): AiEvent | null {
+  try {
+    const normalized = normalizeRawPayload(raw);
+    const parsed = aiEventSchema.parse(normalized);
+    return {
+      ...parsed,
+      bbox: parsed.bbox ?? null,
+      track_id:
+        parsed.track_id === null || parsed.track_id === undefined
+          ? null
+          : String(parsed.track_id),
+    };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      console.warn('[useAiEvents] Ignoring malformed AI event payload:', error.message);
+      return null;
+    }
+    throw error;
+  }
+}
+
+export function useAiEvents(input: string | UseAiEventsOptions = {}): AiEventFeedState {
   const options = typeof input === 'string' ? { url: input, enabled: true } : input;
   const enabled = options.enabled ?? true;
 
@@ -44,100 +100,88 @@ export function useAiEvents(input: string | UseAiEventsOptions = {}) {
   const defaultWsUrl = backendBaseUrl.replace(/^http/, 'ws') + '/ws';
   const url = options.url ?? defaultWsUrl;
 
-  const [events, setEvents] = useState<AiEvent[]>([]);
+  const [feedState, setFeedState] = useState<AiEventFeedState>({
+    events: [],
+    connectionState: 'idle',
+    lastEventAt: null,
+  });
+
+  // Prune stale events on a timer
+  const eventsRef = useRef<readonly AiEvent[]>([]);
+  eventsRef.current = feedState.events;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const nowMs = Date.now();
+      setFeedState((prev) => {
+        const pruned = prev.events.filter(
+          (e) => nowMs - (e.timestamp > 1e10 ? e.timestamp : e.timestamp * 1000) <= STALE_EVENT_WINDOW_MS,
+        );
+        if (pruned.length === prev.events.length) return prev;
+        return { ...prev, events: pruned };
+      });
+    }, PRUNE_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (!enabled) {
-      setEvents([]);
+      setFeedState({ events: [], connectionState: 'idle', lastEventAt: null });
       return undefined;
     }
 
     const isWebSocket = url.startsWith('ws://') || url.startsWith('wss://') || url.includes('/ws');
 
+    const handleIncoming = (raw: Record<string, unknown>) => {
+      const aiEvent = parseToAiEvent(raw);
+      if (!aiEvent) return;
+      setFeedState((prev) => ({
+        connectionState: 'connected',
+        lastEventAt: Date.now(),
+        events: reduceAiEventFeed(prev.events, aiEvent),
+      }));
+    };
+
     if (isWebSocket) {
       console.log('[useAiEvents] Connecting to WebSocket:', url);
+      setFeedState((prev) => ({ ...prev, connectionState: 'connecting' }));
+
       const client = new SimpleStompClient({
-        url: url,
+        url,
         topic: '/topic/alerts',
-        onMessage: (message) => {
-          try {
-            const timestampVal = typeof message.timestamp === 'string'
-              ? Math.floor(new Date(message.timestamp).getTime() / 1000)
-              : (typeof message.timestamp === 'number' ? message.timestamp : Math.floor(Date.now() / 1000));
-
-            const normalizedData = {
-              camera_id: message.camera_id ?? message.cameraId,
-              event_type: message.event_type ?? message.type,
-              timestamp: timestampVal,
-              severity: message.severity ?? 'HIGH',
-              frame_idx: message.frame_idx ?? 0,
-              score: message.score ?? 0,
-              confidence: message.confidence ?? 0,
-              boxes: message.boxes ?? [],
-              bbox: message.bbox ?? null,
-              threshold: message.threshold ?? 0,
-              track_id: message.track_id ?? null,
-            };
-
-            const parsed = aiEventSchema.parse(normalizedData);
-            const normalized: AiEvent = {
-              ...parsed,
-              bbox: parsed.bbox ?? null,
-              track_id: parsed.track_id === null || parsed.track_id === undefined ? null : String(parsed.track_id),
-            };
-            setEvents((prev) => [normalized, ...prev].slice(0, 50));
-          } catch (error) {
-            if (error instanceof SyntaxError || error instanceof z.ZodError) {
-              console.warn('[useAiEvents] Ignoring malformed AI event payload:', error.message);
-              return;
-            }
-            throw error;
-          }
-        },
+        onMessage: handleIncoming,
         onStatusChange: (status) => {
           console.log('[useAiEvents] WebSocket status changed:', status);
-        }
+          if (status === 'connected') {
+            setFeedState((prev) => ({ ...prev, connectionState: 'connected' }));
+          } else if (status === 'disconnected') {
+            setFeedState((prev) => ({ ...prev, connectionState: 'disconnected' }));
+          }
+        },
       });
 
       client.connect();
 
       return () => {
         client.disconnect();
+        setFeedState((prev) => ({ ...prev, connectionState: 'disconnected' }));
       };
     } else {
       console.log('[useAiEvents] Connecting to SSE EventSource:', url);
+      setFeedState((prev) => ({ ...prev, connectionState: 'connecting' }));
       const eventSource = new EventSource(url);
+
+      eventSource.onopen = () => {
+        setFeedState((prev) => ({ ...prev, connectionState: 'connected' }));
+      };
+
       eventSource.onmessage = (event) => {
         try {
-          const rawData = JSON.parse(event.data);
-          const timestampVal = typeof rawData.timestamp === 'string'
-            ? Math.floor(new Date(rawData.timestamp).getTime() / 1000)
-            : (typeof rawData.timestamp === 'number' ? rawData.timestamp : Math.floor(Date.now() / 1000));
-
-          const normalizedData = {
-            camera_id: rawData.camera_id ?? rawData.cameraId,
-            event_type: rawData.event_type ?? rawData.type,
-            timestamp: timestampVal,
-            severity: rawData.severity ?? 'HIGH',
-            frame_idx: rawData.frame_idx ?? 0,
-            score: rawData.score ?? 0,
-            confidence: rawData.confidence ?? 0,
-            boxes: rawData.boxes ?? [],
-            bbox: rawData.bbox ?? null,
-            threshold: rawData.threshold ?? 0,
-            track_id: rawData.track_id ?? null,
-          };
-
-          const parsed = aiEventSchema.parse(normalizedData);
-          const normalized: AiEvent = {
-            ...parsed,
-            bbox: parsed.bbox ?? null,
-            track_id: parsed.track_id === null || parsed.track_id === undefined ? null : String(parsed.track_id),
-          };
-          setEvents((prev) => [normalized, ...prev].slice(0, 50));
+          const raw = JSON.parse(event.data as string) as Record<string, unknown>;
+          handleIncoming(raw);
         } catch (error) {
-          if (error instanceof SyntaxError || error instanceof z.ZodError) {
-            console.warn('[useAiEvents] Ignoring malformed AI event payload:', error.message);
+          if (error instanceof SyntaxError) {
+            console.warn('[useAiEvents] Ignoring malformed SSE payload:', error.message);
             return;
           }
           throw error;
@@ -146,14 +190,20 @@ export function useAiEvents(input: string | UseAiEventsOptions = {}) {
 
       eventSource.onerror = () => {
         console.warn('[useAiEvents] AI event stream disconnected.');
+        setFeedState((prev) => ({ ...prev, connectionState: 'disconnected' }));
       };
 
       return () => {
         eventSource.close();
+        setFeedState((prev) => ({ ...prev, connectionState: 'disconnected' }));
       };
     }
   }, [enabled, url]);
 
-  return events;
+  return feedState;
 }
 
+// ---------------------------------------------------------------------------
+// Backwards-compatible default export of events array for existing callers
+// ---------------------------------------------------------------------------
+export { aiEventFingerprint };
