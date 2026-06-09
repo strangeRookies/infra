@@ -71,7 +71,8 @@ class EmergencyJurisdictionControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.district").value("해운대구"))
-                .andExpect(jsonPath("$.data.jurisdiction").value("기장소방서"));
+                .andExpect(jsonPath("$.data.jurisdiction").value("해운대소방서"))
+                .andExpect(jsonPath("$.data.centerName").value("반송119안전센터"));
     }
 
     @Test
@@ -101,7 +102,8 @@ class EmergencyJurisdictionControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.district").value("제주시"))
-                .andExpect(jsonPath("$.data.jurisdiction").value("동부소방서"));
+                .andExpect(jsonPath("$.data.jurisdiction").value("제주소방서"))
+                .andExpect(jsonPath("$.data.centerName").value("노형119안전센터"));
     }
 
     @Test
