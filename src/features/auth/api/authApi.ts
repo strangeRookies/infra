@@ -25,6 +25,7 @@ export interface LoginUser {
   email?: string;
   name?: string;
   role: string;
+  facilityId?: number;
 }
 
 export interface LoginResponse {

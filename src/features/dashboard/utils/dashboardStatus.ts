@@ -15,12 +15,6 @@ import type {
 
 export const INITIAL_ALERTS: IncidentAlert[] = [];
 
-export const INITIAL_CAMERAS: RegisteredCamera[] = [
-  { id: 'CCTV-01', name: '병실 1', location: '1층', password: 'cam1234' },
-  { id: 'CCTV-02', name: '복도 A', location: '1층', password: 'hall5678' },
-  { id: 'CCTV-03', name: '병실 2', location: '1층' },
-];
-
 export const MOCK_LOGIN_HISTORY = [
   { date: '2026-05-29 09:42', device: 'Chrome / Windows 11', ip: '192.168.1.xxx', status: '성공' },
   { date: '2026-05-28 17:15', device: 'Chrome / Windows 11', ip: '192.168.1.xxx', status: '성공' },
