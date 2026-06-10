@@ -18,7 +18,6 @@ import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
-import com.strange.safety.alert.service.AlertEventService;
 
 @Component
 public class MqttSafetyEventSubscriber implements MqttCallbackExtended {
@@ -26,8 +25,7 @@ public class MqttSafetyEventSubscriber implements MqttCallbackExtended {
     private static final Logger log = LoggerFactory.getLogger(MqttSafetyEventSubscriber.class);
 
     private final ObjectMapper objectMapper;
-    private final AlertBroadcastService alertBroadcastService;
-    private final AlertEventService alertEventService;
+    private final AsyncEventProcessorService asyncEventProcessorService;
     private final MqttConnectOptions connectOptions;
     private final String brokerUrl;
     private final String clientId;
@@ -38,16 +36,14 @@ public class MqttSafetyEventSubscriber implements MqttCallbackExtended {
 
     public MqttSafetyEventSubscriber(
             ObjectMapper objectMapper,
-            AlertBroadcastService alertBroadcastService,
-            AlertEventService alertEventService,
+            AsyncEventProcessorService asyncEventProcessorService,
             MqttConnectOptions connectOptions,
             @Value("${mqtt.broker-url:tcp://localhost:1883}") String brokerUrl,
             @Value("${mqtt.client-id:safety-backend}") String clientId,
             @Value("${mqtt.topic:safety/events}") String topic
     ) {
         this.objectMapper = objectMapper;
-        this.alertBroadcastService = alertBroadcastService;
-        this.alertEventService = alertEventService;
+        this.asyncEventProcessorService = asyncEventProcessorService;
         this.connectOptions = connectOptions;
         this.brokerUrl = brokerUrl;
         this.clientId = clientId;
@@ -101,12 +97,9 @@ public class MqttSafetyEventSubscriber implements MqttCallbackExtended {
 
         try {
             SafetyEventDto event = objectMapper.readValue(payload, SafetyEventDto.class);
-            alertEventService.createEvent(event);
-            alertBroadcastService.broadcast(event);
+            asyncEventProcessorService.processEvent(event);
         } catch (JsonProcessingException ex) {
             log.error("Failed to parse MQTT safety event JSON: payload={}", payload, ex);
-        } catch (RuntimeException ex) {
-            log.error("Failed to process MQTT safety event: payload={}", payload, ex);
         }
     }
 
