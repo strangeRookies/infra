@@ -88,6 +88,7 @@ class SignupServiceIntegrationTest {
         var facility = facilityRepository.findAll().get(0);
         assertThat(facility.getDistrict()).isEqualTo("마포구");
         assertThat(facility.getEmergency119Jurisdiction()).isEqualTo("마포소방서");
+        assertThat(emergencyContactRepository.findAll().get(0).getPhoneNumber()).isEqualTo("021234567");
     }
 
     @Test
@@ -174,6 +175,7 @@ class SignupServiceIntegrationTest {
         var profile = companyProfileRepository.findAll().get(0);
         assertThat(profile.getDistrict()).isEqualTo("강남구");
         assertThat(profile.getEmergency119Jurisdiction()).isEqualTo("강남소방서");
+        assertThat(profile.getManagerContact()).isEqualTo("025551234");
     }
 
     @Test
@@ -303,7 +305,7 @@ class SignupServiceIntegrationTest {
                         "care target", "parent", ageGroup, "04123",
                         "서울특별시 마포구 월드컵로 1", "101", "공덕동", "강남구", "강남소방서"),
                 List.of(new IndividualSignupRequest.EmergencyContactRequest(
-                        "emergency contact", "child", "01033334444")),
+                        "emergency contact", "child", "02-123-4567")),
                 agreements
         );
     }
@@ -325,7 +327,7 @@ class SignupServiceIntegrationTest {
                         "Smart Safety Hospital", businessNumber, "medical", "50-200",
                         "06123", "서울특별시 강남구 테헤란로 1", "Safety Office", "역삼동", "마포구", "마포소방서"),
                 new CorporateSignupRequest.ManagerRequest(
-                        "company manager", "safety team", "manager", "manager@example.com", phone),
+                        "company manager", "safety team", "manager", "manager@example.com", "02-555-1234"),
                 installation,
                 requiredAgreements(true)
         );

@@ -77,7 +77,7 @@ public class SignupService {
             contacts.forEach(contact -> emergencyContactRepository.save(EmergencyContact.builder()
                     .guardianUser(user).protectedTarget(target).name(contact.name())
                     .relationship(contact.relation())
-                    .phoneNumber(smsVerificationService.normalizePhone(contact.phone()))
+                    .phoneNumber(normalizeContactNumber(contact.phone()))
                     .build()));
         }
         return SignupResponse.from(user);
@@ -106,7 +106,7 @@ public class SignupService {
                 .emergency119Jurisdiction(jurisdiction.jurisdiction()).managerName(manager.name())
                 .managerDepartment(manager.department()).managerRank(manager.rank())
                 .managerEmail(normalizeEmail(manager.email()))
-                .managerContact(smsVerificationService.normalizePhone(manager.contact()))
+                .managerContact(normalizeContactNumber(manager.contact()))
                 .build());
         CorporateSignupRequest.InstallationRequest installation = request.installation();
         if (installation != null) {
@@ -149,6 +149,10 @@ public class SignupService {
 
     private String normalizeNumber(String value) {
         return value.replaceAll("[^0-9]", "");
+    }
+
+    private String normalizeContactNumber(String value) {
+        return value == null ? null : normalizeNumber(value);
     }
 
     private EmergencyJurisdictionResponse resolveJurisdiction(
