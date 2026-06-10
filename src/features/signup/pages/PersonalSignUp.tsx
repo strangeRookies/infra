@@ -21,6 +21,7 @@ import {
   requestSmsVerification,
   signupIndividual,
 } from '../../auth/api/authApi';
+import { ApiError } from '../../../shared/api/client';
 import { AgreementDetailDialog } from '../components/AgreementDetailDialog';
 import { getAgreementById, type AgreementId } from '../data/agreements';
 import {
@@ -70,7 +71,7 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
   const [verificationCode, setVerificationCode] = useState('');
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
   const [isCodeSent, setIsCodeSent] = useState(false);
-  const [verificationId, setVerificationId] = useState('');
+  const [verificationId, setVerificationId] = useState<number | string>('');
   const [verificationToken, setVerificationToken] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -81,6 +82,7 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
   const [postcode, setPostcode] = useState('');
   const [address, setAddress] = useState('');
   const [addressDetail, setAddressDetail] = useState('');
+  const [region3DepthName, setRegion3DepthName] = useState('');
   
   const [selectedDistrict, setSelectedDistrict] = useState('마포구');
   const [jurisdiction, setJurisdiction] = useState('마포소방서');
@@ -100,7 +102,12 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
   const [agreeMarketing, setAgreeMarketing] = useState(false);
   const [selectedAgreementId, setSelectedAgreementId] = useState<AgreementId | null>(null);
 
-  const resolveJurisdiction = async (nextPostcode: string, nextAddress: string, nextAddressDetail = '') => {
+  const resolveJurisdiction = async (
+    nextPostcode: string,
+    nextAddress: string,
+    nextAddressDetail = '',
+    nextRegion3DepthName = '',
+  ) => {
     setJurisdictionStatus('loading');
     setJurisdictionError('');
     setEmergencyJurisdiction(null);
@@ -112,6 +119,7 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
         postcode: nextPostcode,
         address: nextAddress,
         addressDetail: nextAddressDetail,
+        region3DepthName: nextRegion3DepthName || undefined,
       });
       setEmergencyJurisdiction(result);
       setSelectedDistrict(result.district);
@@ -119,7 +127,11 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
       setJurisdictionStatus('success');
     } catch (error) {
       setJurisdictionStatus('error');
-      setJurisdictionError(error instanceof Error ? error.message : '관할 정보를 찾을 수 없습니다. 주소를 다시 선택해주세요.');
+      if (error instanceof ApiError && error.code === 'EMERGENCY_JURISDICTION_NOT_FOUND') {
+        setJurisdictionError('해당 주소에 매칭되는 관할 119센터를 찾을 수 없습니다. 정확한 주소를 입력해주세요.');
+      } else {
+        setJurisdictionError(error instanceof Error ? error.message : '관할 정보를 찾을 수 없습니다. 주소를 다시 선택해주세요.');
+      }
     }
   };
 
@@ -131,7 +143,8 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
           setPostcode(data.zonecode);
           setAddress(data.address);
           setAddressDetail('');
-          void resolveJurisdiction(data.zonecode, data.address, '');
+          setRegion3DepthName(data.bname || '');
+          void resolveJurisdiction(data.zonecode, data.address, '', data.bname || '');
         }
       }).open();
     };
@@ -171,9 +184,17 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
       setVerificationToken('');
       setIsPhoneVerified(false);
       setIsCodeSent(true);
-      alert('인증번호를 발송했습니다. 개발 환경 인증번호는 123456입니다.');
+      alert('인증번호를 발송했습니다. 개발 환경에서는 백엔드 서버 로그에서 인증번호를 확인해주세요.');
     } catch (error) {
-      alert(error instanceof Error ? error.message : '인증번호 발송에 실패했습니다.');
+      if (error instanceof ApiError && error.code === 'SMS_RATE_LIMITED') {
+        alert('인증번호를 너무 자주 요청했습니다. 잠시 후 다시 시도해주세요.');
+      } else if (error instanceof ApiError && error.code === 'SMS_SEND_FAILED') {
+        alert('인증번호 발송에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      } else if (error instanceof ApiError && error.status >= 500) {
+        alert('인증번호 발송 처리 중 서버 오류가 발생했습니다. 백엔드 서버 로그에서 SMS 설정 또는 Mock 인증번호 생성 상태를 확인해주세요.');
+      } else {
+        alert(error instanceof Error ? error.message : '인증번호 발송에 실패했습니다.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -275,7 +296,7 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
         return;
       }
       if (!emergencyJurisdiction || jurisdictionStatus !== 'success') {
-        alert('관할 119센터 조회가 완료된 주소를 선택해주세요.');
+        alert(jurisdictionError || '관할 119센터 조회가 완료된 주소를 선택해주세요.');
         return;
       }
       setStep(4);
@@ -289,6 +310,12 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
       if (!verificationToken) {
         alert('휴대폰 본인 인증을 다시 진행해주세요.');
         setStep(2);
+        return;
+      }
+      const resolvedJurisdiction = emergencyJurisdiction;
+      if (!resolvedJurisdiction) {
+        alert('관할 119센터 조회가 완료된 주소를 선택해주세요.');
+        setStep(3);
         return;
       }
       try {
@@ -305,9 +332,10 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
             ageGroup,
             postcode,
             address,
-            addressDetail,
-            district: selectedDistrict,
-            jurisdiction,
+            addressDetail: addressDetail.trim(),
+            region3DepthName: region3DepthName || undefined,
+            district: resolvedJurisdiction.district,
+            jurisdiction: resolvedJurisdiction.jurisdiction,
           },
           emergencyContacts: emergencyContacts.map((contact) => ({
             name: contact.name.trim(),
@@ -323,7 +351,12 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
         alert('개인용 회원가입이 성공적으로 완료되었습니다!');
         onSignUpComplete();
       } catch (error) {
-        alert(error instanceof Error ? error.message : '회원가입 요청에 실패했습니다.');
+        if (error instanceof ApiError && error.code === 'EMERGENCY_JURISDICTION_NOT_FOUND') {
+          alert('선택하신 주소의 관할 정보를 백엔드에서 다시 계산하는 중 오류가 발생했습니다(관할 미매칭). 다른 주소를 시도해주세요.');
+          setStep(3);
+        } else {
+          alert(error instanceof Error ? error.message : '회원가입 요청에 실패했습니다.');
+        }
       } finally {
         setIsSubmitting(false);
       }
@@ -501,7 +534,7 @@ export function PersonalSignUp({ onBackToLogin, onSignUpComplete }: PersonalSign
                         type="text"
                         value={verificationCode}
                         onChange={(e) => setVerificationCode(e.target.value)}
-                        placeholder="인증번호 6자리를 입력해주세요 (123456)"
+                        placeholder="인증번호 6자리를 입력해주세요"
                         className="flex-1 px-4 py-3 bg-[#070e1b] border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-colors font-mono tracking-widest"
                       />
                       <button

@@ -1,4 +1,5 @@
 import { apiRequest } from '../../../shared/api/client';
+import { authStore } from '../../../shared/api/authStore';
 
 export type FrontendAccountType = 'individual' | 'corporate' | 'admin';
 export type BackendAccountType = 'INDIVIDUAL' | 'CORPORATE' | 'ADMIN';
@@ -11,7 +12,8 @@ export const AUTH_STORAGE_KEYS = {
 } as const;
 
 export interface SmsVerificationRequestResponse {
-  verificationId: string;
+  verificationId: number | string;
+  expiresIn?: number;
 }
 
 export interface SmsVerificationConfirmResponse {
@@ -41,6 +43,7 @@ export interface EmergencyJurisdictionRequest {
   postcode: string;
   address: string;
   addressDetail: string;
+  region3DepthName?: string;
 }
 
 export interface EmergencyJurisdictionResponse {
@@ -66,6 +69,7 @@ export interface IndividualSignupPayload {
     postcode: string;
     address: string;
     addressDetail: string;
+    region3DepthName?: string;
     district: string;
     jurisdiction: string;
   };
@@ -90,6 +94,7 @@ export interface CorporateSignupPayload {
     postcode: string;
     address: string;
     addressDetail: string;
+    region3DepthName?: string;
     district: string;
     jurisdiction: string;
   };
@@ -136,12 +141,12 @@ export function normalizeBusinessNumber(value: string): string {
 }
 
 export function saveAuthSession(loginResponse: LoginResponse) {
-  localStorage.setItem(AUTH_STORAGE_KEYS.accessToken, loginResponse.accessToken);
-  localStorage.setItem(AUTH_STORAGE_KEYS.refreshToken, loginResponse.refreshToken);
-  localStorage.setItem(AUTH_STORAGE_KEYS.user, JSON.stringify(loginResponse.user));
+  authStore.setSession(loginResponse.accessToken, loginResponse.refreshToken, loginResponse.user);
 }
 
 export function clearAuthSession() {
+  authStore.clearSession();
+  // 브라우저에 남아있을 수 있는 기존 토큰 정보들을 강제로 삭제하여 청소합니다.
   localStorage.removeItem(AUTH_STORAGE_KEYS.accessToken);
   localStorage.removeItem(AUTH_STORAGE_KEYS.refreshToken);
   localStorage.removeItem(AUTH_STORAGE_KEYS.user);
@@ -157,7 +162,7 @@ export async function requestSmsVerification(phone: string) {
   });
 }
 
-export async function confirmSmsVerification(verificationId: string, code: string) {
+export async function confirmSmsVerification(verificationId: number | string, code: string) {
   return apiRequest<SmsVerificationConfirmResponse>('/api/auth/verifications/sms/confirm', {
     method: 'POST',
     body: {
