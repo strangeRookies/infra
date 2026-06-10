@@ -9,7 +9,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.strange.safety.auth.entity.Role;
+import com.strange.safety.auth.entity.SmsVerification;
+import com.strange.safety.auth.entity.VerificationPurpose;
 import com.strange.safety.auth.repository.RefreshTokenRepository;
+import com.strange.safety.auth.repository.SmsVerificationRepository;
+import com.strange.safety.auth.security.RefreshTokenHasher;
 import com.strange.safety.auth.security.JwtTokenProvider;
 import com.strange.safety.event.MqttSafetyEventSubscriber;
 import com.strange.safety.user.entity.User;
@@ -17,6 +21,7 @@ import com.strange.safety.user.entity.AgreementType;
 import com.strange.safety.user.entity.UserAgreement;
 import com.strange.safety.user.repository.UserAgreementRepository;
 import com.strange.safety.user.repository.UserRepository;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,8 +45,10 @@ class AuthSecurityIntegrationTest {
     @Autowired UserRepository userRepository;
     @Autowired UserAgreementRepository userAgreementRepository;
     @Autowired RefreshTokenRepository refreshTokenRepository;
+    @Autowired SmsVerificationRepository smsVerificationRepository;
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @Autowired RefreshTokenHasher tokenHasher;
 
     @MockBean MqttSafetyEventSubscriber mqttSafetyEventSubscriber;
 
@@ -50,6 +57,7 @@ class AuthSecurityIntegrationTest {
     @BeforeEach
     void setUp() {
         refreshTokenRepository.deleteAll();
+        smsVerificationRepository.deleteAll();
         userAgreementRepository.deleteAll();
         userRepository.deleteAll();
         activeUser = userRepository.save(User.create(
@@ -198,6 +206,107 @@ class AuthSecurityIntegrationTest {
                 .andExpect(jsonPath("$.error.code").value("AUTH_INVALID_TOKEN"));
     }
 
+    @Test
+    void passwordResetSmsEndpointIsPublicAndIssuesResetVerification() throws Exception {
+        mockMvc.perform(post("/api/auth/password-reset/verifications/sms")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "security@example.com",
+                                  "phone": "010-1234-5678"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.verificationId").exists());
+
+        SmsVerification verification = smsVerificationRepository.findAll().get(0);
+        org.assertj.core.api.Assertions.assertThat(verification.getPhoneNumber()).isEqualTo("01012345678");
+        org.assertj.core.api.Assertions.assertThat(verification.getPurpose()).isEqualTo(VerificationPurpose.RESET_PASSWORD);
+    }
+
+    @Test
+    void passwordResetChangesPasswordAndRevokesRefreshTokens() throws Exception {
+        JsonNode login = responseBody(mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginRequest()))
+                .andExpect(status().isOk())
+                .andReturn());
+        String previousRefreshToken = login.path("data").path("refreshToken").asText();
+        String verificationToken = verifiedToken("01012345678", VerificationPurpose.RESET_PASSWORD);
+
+        mockMvc.perform(post("/api/auth/password-reset")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(java.util.Map.of(
+                                "email", "security@example.com",
+                                "phone", "010-1234-5678",
+                                "verificationToken", verificationToken,
+                                "newPassword", "NewPassword123!"
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginRequest()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_INVALID_CREDENTIALS"));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "security@example.com",
+                                  "password": "NewPassword123!",
+                                  "accountType": "INDIVIDUAL"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/auth/reissue")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                java.util.Map.of("refreshToken", previousRefreshToken))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTH_INVALID_TOKEN"));
+    }
+
+    @Test
+    void passwordResetRejectsSignupVerificationToken() throws Exception {
+        String verificationToken = verifiedToken("01012345678", VerificationPurpose.SIGN_UP);
+
+        mockMvc.perform(post("/api/auth/password-reset")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(java.util.Map.of(
+                                "email", "security@example.com",
+                                "phone", "01012345678",
+                                "verificationToken", verificationToken,
+                                "newPassword", "NewPassword123!"
+                        ))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("AUTH_INVALID_VERIFICATION"));
+    }
+
+    @Test
+    void passwordResetValidationFailureReturnsCommonError() throws Exception {
+        mockMvc.perform(post("/api/auth/password-reset")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "invalid-email",
+                                  "phone": "",
+                                  "verificationToken": "",
+                                  "newPassword": "short"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON_INVALID_INPUT"))
+                .andExpect(jsonPath("$.error.fieldErrors.email").exists())
+                .andExpect(jsonPath("$.error.fieldErrors.phone").exists())
+                .andExpect(jsonPath("$.error.fieldErrors.verificationToken").exists())
+                .andExpect(jsonPath("$.error.fieldErrors.newPassword").exists());
+    }
+
     private String loginRequest() {
         return """
                 {
@@ -210,5 +319,14 @@ class AuthSecurityIntegrationTest {
 
     private JsonNode responseBody(MvcResult result) throws Exception {
         return objectMapper.readTree(result.getResponse().getContentAsString());
+    }
+
+    private String verifiedToken(String phone, VerificationPurpose purpose) {
+        String token = "verified-" + purpose + "-" + System.nanoTime();
+        SmsVerification verification = SmsVerification.issue(
+                phone, purpose, passwordEncoder.encode("123456"), Instant.now().plusSeconds(300));
+        verification.verify(tokenHasher.hash(token), Instant.now().plusSeconds(900), Instant.now());
+        smsVerificationRepository.save(verification);
+        return token;
     }
 }

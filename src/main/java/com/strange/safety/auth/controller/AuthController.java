@@ -2,6 +2,7 @@ package com.strange.safety.auth.controller;
 
 import com.strange.safety.auth.dto.*;
 import com.strange.safety.auth.service.AuthService;
+import com.strange.safety.auth.service.PasswordResetService;
 import com.strange.safety.auth.service.SignupService;
 import com.strange.safety.auth.service.SmsVerificationService;
 import com.strange.safety.common.response.ApiResponse;
@@ -18,6 +19,7 @@ public class AuthController {
     private final AuthService authService;
     private final SignupService signupService;
     private final SmsVerificationService smsVerificationService;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping("/signup/individual")
     @ResponseStatus(HttpStatus.CREATED)
@@ -41,6 +43,19 @@ public class AuthController {
             @Valid @RequestBody SmsVerificationConfirmRequest request
     ) {
         return ApiResponse.success("휴대폰 인증이 완료되었습니다.", smsVerificationService.confirm(request));
+    }
+
+    @PostMapping("/password-reset/verifications/sms")
+    public ApiResponse<SmsVerificationResponse> sendPasswordResetSms(
+            @Valid @RequestBody PasswordResetSmsRequest request
+    ) {
+        return ApiResponse.success("비밀번호 재설정 인증번호가 발급되었습니다.", passwordResetService.sendSms(request));
+    }
+
+    @PostMapping("/password-reset")
+    public ApiResponse<Void> resetPassword(@Valid @RequestBody PasswordResetRequest request) {
+        passwordResetService.resetPassword(request);
+        return ApiResponse.success("비밀번호가 재설정되었습니다.", null);
     }
 
     @GetMapping("/email-availability")

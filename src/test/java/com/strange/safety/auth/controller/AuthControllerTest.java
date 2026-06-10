@@ -11,6 +11,7 @@ import com.strange.safety.auth.dto.LoginRequest;
 import com.strange.safety.auth.dto.TokenResponse;
 import com.strange.safety.auth.entity.Role;
 import com.strange.safety.auth.service.AuthService;
+import com.strange.safety.auth.service.PasswordResetService;
 import com.strange.safety.auth.service.SignupService;
 import com.strange.safety.auth.service.SmsVerificationService;
 import com.strange.safety.common.exception.GlobalExceptionHandler;
@@ -31,8 +32,10 @@ class AuthControllerTest {
         authService = org.mockito.Mockito.mock(AuthService.class);
         SignupService signupService = org.mockito.Mockito.mock(SignupService.class);
         SmsVerificationService smsVerificationService = org.mockito.Mockito.mock(SmsVerificationService.class);
+        PasswordResetService passwordResetService = org.mockito.Mockito.mock(PasswordResetService.class);
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new AuthController(authService, signupService, smsVerificationService))
+                .standaloneSetup(new AuthController(
+                        authService, signupService, smsVerificationService, passwordResetService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
