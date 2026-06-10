@@ -47,12 +47,8 @@ public class Camera extends BaseEntity {
     @Column(name = "location_description")
     private String locationDescription;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "source_type", nullable = false, length = 20)
-    private CameraSourceType sourceType;
-
-    @Column(name = "assigned_video_path")
-    private String assignedVideoPath;
+    @Column(name = "ai_enabled", nullable = false)
+    private boolean aiEnabled;
 
     /**
      * AI Edge 서버가 MQTT로 보고하는 실시간 RTSP 연결 상태.
@@ -68,7 +64,7 @@ public class Camera extends BaseEntity {
 
     @Builder
     private Camera(Facility facility, String cameraLoginId, String cameraName, String cameraSerialNumber,
-                   String cameraPasswordEncrypted, String rtspUrl, String locationDescription, CameraSourceType sourceType, String assignedVideoPath) {
+                   String cameraPasswordEncrypted, String rtspUrl, String locationDescription, Boolean aiEnabled) {
         this.facility = facility;
         this.cameraLoginId = cameraLoginId;
         this.cameraName = cameraName;
@@ -78,21 +74,16 @@ public class Camera extends BaseEntity {
         this.locationDescription = locationDescription;
         this.status = CameraStatus.ACTIVE;
         this.connectionStatus = CameraConnectionStatus.UNKNOWN;
-        this.sourceType = sourceType != null ? sourceType : CameraSourceType.REAL_RTSP;
-        this.assignedVideoPath = assignedVideoPath;
+        this.aiEnabled = aiEnabled != null ? aiEnabled : true;
     }
 
-    public void update(String cameraName, String cameraSerialNumber, String rtspUrl, CameraStatus status, String locationDescription) {
+    public void update(String cameraName, String cameraSerialNumber, String rtspUrl, CameraStatus status, String locationDescription, Boolean aiEnabled) {
         if (cameraName != null) this.cameraName = cameraName;
         if (cameraSerialNumber != null) this.cameraSerialNumber = cameraSerialNumber;
         if (rtspUrl != null) this.rtspUrl = rtspUrl;
         if (status != null) this.status = status;
         if (locationDescription != null) this.locationDescription = locationDescription;
-    }
-
-    public void updateSimulationFields(String rtspUrl, String assignedVideoPath) {
-        if (rtspUrl != null) this.rtspUrl = rtspUrl;
-        if (assignedVideoPath != null) this.assignedVideoPath = assignedVideoPath;
+        if (aiEnabled != null) this.aiEnabled = aiEnabled;
     }
 
     /**

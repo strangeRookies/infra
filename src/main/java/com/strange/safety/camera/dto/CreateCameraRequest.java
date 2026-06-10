@@ -16,5 +16,5 @@ public class CreateCameraRequest {
 
     private String locationDescription;
 
-    private com.strange.safety.camera.entity.CameraSourceType sourceType;
+    private Boolean aiEnabled;
 }

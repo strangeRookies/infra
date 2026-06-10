@@ -56,7 +56,8 @@ public class SecurityConfig {
                                 "/api/auth/verifications/sms/confirm",
                                 "/api/auth/email-availability",
                                 "/api/companies/business-number-availability",
-                                "/api/emergency-jurisdictions/resolve"
+                                "/api/emergency-jurisdictions/resolve",
+                                "/api/cameras/active"
                         ).permitAll()
 
                         // USER 접근 가능

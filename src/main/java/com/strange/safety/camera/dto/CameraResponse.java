@@ -21,8 +21,7 @@ public class CameraResponse {
     private String locationDescription;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private com.strange.safety.camera.entity.CameraSourceType sourceType;
-    private String assignedVideoPath;
+    private boolean aiEnabled;
 
     public static CameraResponse from(Camera camera) {
         return CameraResponse.builder()
@@ -36,8 +35,7 @@ public class CameraResponse {
                 .locationDescription(camera.getLocationDescription())
                 .createdAt(camera.getCreatedAt())
                 .updatedAt(camera.getUpdatedAt())
-                .sourceType(camera.getSourceType())
-                .assignedVideoPath(camera.getAssignedVideoPath())
+                .aiEnabled(camera.isAiEnabled())
                 .build();
     }
 }

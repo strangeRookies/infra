@@ -13,4 +13,5 @@ public class UpdateCameraRequest {
     private String rtspUrl;
     private CameraStatus status;
     private String locationDescription;
+    private Boolean aiEnabled;
 }
