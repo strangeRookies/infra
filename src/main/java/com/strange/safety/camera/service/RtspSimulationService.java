@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -24,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RtspSimulationService {
 
     private final CameraRepository cameraRepository;
-    private final MqttClient mqttClient;
+    private final ObjectProvider<MqttClient> mqttClientProvider;
 
     @Value("${simulation.rtsp.base-url:rtsp://localhost:8554}")
     private String rtspBaseUrl;
@@ -60,7 +61,7 @@ public class RtspSimulationService {
     }
 
     public String generateRtspUrl(String cameraLoginId) {
-        return rtspBaseUrl + "/cam-" + cameraLoginId;
+        return rtspBaseUrl + "/" + cameraLoginId;
     }
 
     public void startSimulation(String cameraLoginId, String videoPath, String rtspUrl) {
@@ -118,9 +119,15 @@ public class RtspSimulationService {
 
     private void publishStatus(String cameraLoginId, CameraConnectionStatus status) {
         try {
+            MqttClient mqttClient = mqttClientProvider.getIfAvailable();
+            if (mqttClient == null) {
+                log.debug("No raw MqttClient bean available; skipping simulation status publish for camera {}", cameraLoginId);
+                return;
+            }
             if (mqttClient.isConnected()) {
-                String payload = String.format("{\"camera_id\":\"%s\", \"status\":\"%s\", \"timestamp\":\"%s\"}",
-                        cameraLoginId, status.name(), Instant.now().toString());
+                String payload = String.format(
+                        "{\"camera_id\":\"%s\", \"camera_login_id\":\"%s\", \"status\":\"%s\", \"timestamp\":\"%s\"}",
+                        cameraLoginId, cameraLoginId, status.name(), Instant.now().toString());
                 MqttMessage message = new MqttMessage(payload.getBytes());
                 message.setQos(1);
                 mqttClient.publish(cameraStatusTopic, message);
