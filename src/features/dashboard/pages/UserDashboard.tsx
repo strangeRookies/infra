@@ -4,7 +4,7 @@ import type { Inquiry } from '../../../shared/types/inquiry';
 import { useAiAlertActions } from '../../../hooks/useAiAlertActions';
 import { useDashboardAlerts } from '../hooks/useDashboardAlerts';
 import type { MenuId, InquiryCategory, IncidentAlert } from '../types/dashboard';
-import type { LiveCamera, CameraConnectionStatus, CameraEventStatus } from '../data/cameras';
+import { streamUrl, type LiveCamera, type CameraConnectionStatus, type CameraEventStatus } from '../data/cameras';
 import {
   ALL_MENU_ITEMS,
   CATEGORIES,
@@ -38,6 +38,31 @@ interface NurseDashboardProps {
   onLogout: () => void;
   inquiries: Inquiry[];
   onAddInquiry: (data: Omit<Inquiry, 'id' | 'createdAt'>) => void;
+}
+
+function toLiveCameraConnectionStatus(camera: CameraResponse): CameraConnectionStatus {
+  if (camera.status !== 'ACTIVE') return 'offline';
+
+  switch (camera.connectionStatus) {
+    case 'CONNECTED':
+      return 'online';
+    case 'RECONNECTING':
+    case 'UNKNOWN':
+      return 'connecting';
+    case 'DISCONNECTED':
+    case 'ERROR':
+    case 'DISABLED':
+      return 'offline';
+    default:
+      return 'connecting';
+  }
+}
+
+function toLiveCameraStreamUrl(camera: CameraResponse) {
+  if (camera.displayStreamUrl && camera.displayStreamUrl.trim().length > 0) {
+    return camera.displayStreamUrl.trim();
+  }
+  return streamUrl(camera.cameraLoginId || camera.cameraId.toString());
 }
 
 export function NurseDashboard({
@@ -85,11 +110,13 @@ export function NurseDashboard({
   // --- Derived Live Cameras for Monitoring (using backend data) ---
   const liveCameras = useMemo<LiveCamera[]>(() => {
     return registeredCameras.map(cam => ({
-      id: cam.cameraId.toString(),
+      id: cam.cameraLoginId || cam.cameraId.toString(),
+      cameraLoginId: cam.cameraLoginId,
+      cameraDbId: cam.cameraId.toString(),
       name: cam.cameraName,
       location: cam.locationDescription,
-      streamUrl: cam.rtspUrl || '',
-      connectionStatus: (cam.status === 'ACTIVE' ? 'online' : 'offline') as CameraConnectionStatus,
+      streamUrl: toLiveCameraStreamUrl(cam),
+      connectionStatus: toLiveCameraConnectionStatus(cam),
       eventStatus: 'normal' as CameraEventStatus,
     }));
   }, [registeredCameras]);

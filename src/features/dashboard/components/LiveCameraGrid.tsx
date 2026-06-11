@@ -130,7 +130,9 @@ export function LiveCameraGrid({ cameras, className = '', compact = false, onCam
     <div className={`grid ${gridClass(visibleCameras.length)} gap-3 ${className}`}>
       {visibleCameras.map(camera => {
         // 실시간 MQTT 상태를 cameraStatusMap에서 조회 (camera_login_id 기준)
-        const realtimeCameraStatus = cameraStatusMap?.get(camera.id)
+        const realtimeCameraStatus = cameraStatusMap?.get(camera.cameraLoginId ?? '')
+          ?? cameraStatusMap?.get(camera.id)
+          ?? cameraStatusMap?.get(camera.cameraDbId ?? '')
           ?? cameraStatusMap?.get(camera.name)
           ?? undefined;
         const style = statusStyle(camera, realtimeCameraStatus?.status);
