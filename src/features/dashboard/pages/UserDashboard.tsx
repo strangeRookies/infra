@@ -1,6 +1,7 @@
-import { useEffect, useCallback, useMemo, useState } from 'react';
-import { Camera, LogOut, Shield, ShieldAlert, Loader2, Building2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Camera, LogOut, Shield, ShieldAlert, Loader2 } from 'lucide-react';
 import type { Inquiry } from '../../../shared/types/inquiry';
+import { fetchMyInquiries, createInquiry } from '../api/inquiryApi';
 import { useAiAlertActions } from '../../../hooks/useAiAlertActions';
 import { useDashboardAlerts } from '../hooks/useDashboardAlerts';
 import type { MenuId, InquiryCategory, IncidentAlert } from '../types/dashboard';
@@ -9,15 +10,15 @@ import {
   ALL_MENU_ITEMS,
   CATEGORIES,
 } from '../utils/dashboardStatus';
-import { 
-  registerCamera, 
-  fetchCamerasByFacility, 
-  updateCamera, 
-  type CameraResponse 
+import {
+  registerCamera,
+  fetchCamerasByFacility,
+  updateCamera,
+  type CameraResponse
 } from '../../../app/api/cameraApi';
-import { 
-  fetchMyFacilities, 
-  type FacilityResponse 
+import {
+  fetchMyFacilities,
+  type FacilityResponse
 } from '../../../app/api/facilityApi';
 import { authStore } from '../../../shared/api/authStore';
 import { DashboardAlertsView } from '../components/DashboardAlertsView';
@@ -36,8 +37,6 @@ interface NurseDashboardProps {
   username: string;
   userType: 'individual' | 'corporate';
   onLogout: () => void;
-  inquiries: Inquiry[];
-  onAddInquiry: (data: Omit<Inquiry, 'id' | 'createdAt'>) => void;
 }
 
 const HARDCODED_LIVE_CAMERA: LiveCamera = {
@@ -80,8 +79,6 @@ export function NurseDashboard({
   username,
   userType,
   onLogout,
-  inquiries,
-  onAddInquiry,
 }: NurseDashboardProps) {
   // --- Data States ---
   const [facilities, setFacilities] = useState<FacilityResponse[]>([]);
@@ -112,7 +109,8 @@ export function NurseDashboard({
   const [showCamPwId, setShowCamPwId] = useState<string | null>(null);
 
   // --- QnA States ---
-  const [selectedQnaId, setSelectedQnaId] = useState<string | null>(null);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [selectedQnaId, setSelectedQnaId] = useState<number | null>(null);
   const [showNewQnaModal, setShowNewQnaModal] = useState(false);
   const [qnaTitle, setQnaTitle] = useState('');
   const [qnaContent, setQnaContent] = useState('');
@@ -173,6 +171,12 @@ export function NurseDashboard({
     refreshCameras();
   }, [refreshCameras]);
 
+  useEffect(() => {
+    fetchMyInquiries()
+      .then(setInquiries)
+      .catch((err: unknown) => console.error('[QnA] fetch failed:', err));
+  }, []);
+
   // --- AI and Alerts Hooks ---
   const focusHome = useCallback(() => setActiveMenu('home'), []);
   const {
@@ -204,11 +208,6 @@ export function NurseDashboard({
     () => getFilteredHistory({ searchDate, searchCamera, searchKeyword }),
     [getFilteredHistory, searchCamera, searchDate, searchKeyword],
   );
-  
-  const myInquiries = useMemo(
-    () => inquiries.filter((inquiry) => inquiry.username === username),
-    [inquiries, username],
-  );
 
   // --- Handlers ---
   const handleOpenIncident = (alert: IncidentAlert) => {
@@ -239,7 +238,7 @@ export function NurseDashboard({
       alert('시리얼 넘버를 입력해주세요.');
       return;
     }
-    
+
     try {
       await registerCamera(currentFacility.facilityId, {
         cameraName: newCamName.trim(),
@@ -275,16 +274,15 @@ export function NurseDashboard({
     }
   };
 
-  const handleSubmitQna = () => {
+  const handleSubmitQna = async () => {
     if (!qnaTitle.trim() || !qnaContent.trim()) return;
-    onAddInquiry({
-      userId: username,
-      username,
-      userType,
-      category: qnaCategory,
-      title: qnaTitle.trim(),
-      content: qnaContent.trim(),
-    });
+    try {
+      await createInquiry(qnaCategory, qnaTitle.trim(), qnaContent.trim());
+      const updated = await fetchMyInquiries();
+      setInquiries(updated);
+    } catch (err) {
+      console.error('[QnA] create failed:', err);
+    }
     setQnaTitle('');
     setQnaContent('');
     setQnaCategory(CATEGORIES[3]);
@@ -308,7 +306,7 @@ export function NurseDashboard({
   const selectedCameraObj = selectedIncident
     ? liveCameras.find((camera) => camera.name === selectedIncident.camera || camera.location === selectedIncident.camera)
     : null;
-    
+
   const playbackStreamUrl = selectedCameraObj?.streamUrl || liveCameras[0]?.streamUrl;
 
   // --- Loading View ---
@@ -327,7 +325,7 @@ export function NurseDashboard({
       <header className="h-14 bg-[#061224] border-b border-slate-800/60 px-6 flex items-center justify-between z-10 flex-shrink-0">
         <div className="flex items-center gap-3">
           <Shield className="w-5 h-5 text-blue-400 fill-blue-400/20" />
-          <h1 className="text-sm font-extrabold tracking-wider text-white">쉴더스 관제 대시보드</h1>
+          <h1 className="text-sm font-extrabold tracking-wider text-white">스마트 안전 관제 시스템</h1>
           <span className="h-4 w-px bg-slate-700" />
           <span className="text-xs font-bold text-slate-400">
             {userType === 'individual' ? '개인용 대시보드' : '기업용 대시보드'}
@@ -489,11 +487,12 @@ export function NurseDashboard({
             <DashboardMyPageView
               userType={userType}
               username={username}
+              onLogout={onLogout}
             />
           )}
           {activeMenu === 'qna' && (
             <DashboardQnaView
-              inquiries={myInquiries}
+              inquiries={inquiries}
               selectedQnaId={selectedQnaId}
               onBack={() => setSelectedQnaId(null)}
               onCreateInquiry={() => setShowNewQnaModal(true)}

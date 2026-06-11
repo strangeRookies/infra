@@ -20,6 +20,28 @@ export interface SmsVerificationConfirmResponse {
   verificationToken: string;
 }
 
+export interface PasswordResetVerificationResponse {
+  expiresIn?: number;
+}
+
+export interface PasswordResetVerificationConfirmResponse {
+  verified: boolean;
+  verificationToken: string;
+}
+
+export interface PasswordResetVerificationConfirmPayload {
+  email: string;
+  phone: string;
+  code: string;
+}
+
+export interface PasswordResetRequestPayload {
+  email: string;
+  phone: string;
+  verificationToken: string;
+  newPassword: string;
+}
+
 export interface LoginUser {
   id?: string | number;
   email?: string;
@@ -106,7 +128,7 @@ export interface CorporateSignupPayload {
     email: string;
     contact: string;
   };
-  installation: {
+  installation?: {
     count: string;
     preferredDate: string;
     specialRequest: string;
@@ -170,6 +192,30 @@ export async function confirmSmsVerification(verificationId: number | string, co
       verificationId,
       code,
     },
+  });
+}
+
+export async function requestPasswordResetSms(email: string, phone: string) {
+  return apiRequest<PasswordResetVerificationResponse>('/api/auth/password-reset/verifications/sms', {
+    method: 'POST',
+    body: {
+      email,
+      phone,
+    },
+  });
+}
+
+export async function confirmPasswordResetSms(payload: PasswordResetVerificationConfirmPayload) {
+  return apiRequest<PasswordResetVerificationConfirmResponse>('/api/auth/password-reset/verifications/sms/confirm', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function resetPassword(payload: PasswordResetRequestPayload) {
+  return apiRequest<null>('/api/auth/password-reset', {
+    method: 'POST',
+    body: payload,
   });
 }
 
