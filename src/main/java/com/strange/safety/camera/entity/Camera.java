@@ -62,9 +62,17 @@ public class Camera extends BaseEntity {
     @Column(name = "last_connection_report_at")
     private Instant lastConnectionReportAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source_type", nullable = false, length = 20, columnDefinition = "varchar(20) default 'REAL_RTSP'")
+    private CameraSourceType sourceType;
+
+    @Column(name = "assigned_video_path")
+    private String assignedVideoPath;
+
     @Builder
     private Camera(Facility facility, String cameraLoginId, String cameraName, String cameraSerialNumber,
-                   String cameraPasswordEncrypted, String rtspUrl, String locationDescription, Boolean aiEnabled) {
+                   String cameraPasswordEncrypted, String rtspUrl, String locationDescription, Boolean aiEnabled,
+                   CameraSourceType sourceType, String assignedVideoPath) {
         this.facility = facility;
         this.cameraLoginId = cameraLoginId;
         this.cameraName = cameraName;
@@ -75,15 +83,19 @@ public class Camera extends BaseEntity {
         this.status = CameraStatus.ACTIVE;
         this.connectionStatus = CameraConnectionStatus.UNKNOWN;
         this.aiEnabled = aiEnabled != null ? aiEnabled : true;
+        this.sourceType = sourceType != null ? sourceType : CameraSourceType.REAL_RTSP;
+        this.assignedVideoPath = assignedVideoPath;
     }
 
-    public void update(String cameraName, String cameraSerialNumber, String rtspUrl, CameraStatus status, String locationDescription, Boolean aiEnabled) {
+    public void update(String cameraName, String cameraSerialNumber, String rtspUrl, CameraStatus status, String locationDescription, Boolean aiEnabled, CameraSourceType sourceType, String assignedVideoPath) {
         if (cameraName != null) this.cameraName = cameraName;
         if (cameraSerialNumber != null) this.cameraSerialNumber = cameraSerialNumber;
         if (rtspUrl != null) this.rtspUrl = rtspUrl;
         if (status != null) this.status = status;
         if (locationDescription != null) this.locationDescription = locationDescription;
         if (aiEnabled != null) this.aiEnabled = aiEnabled;
+        if (sourceType != null) this.sourceType = sourceType;
+        if (assignedVideoPath != null) this.assignedVideoPath = assignedVideoPath;
     }
 
     /**

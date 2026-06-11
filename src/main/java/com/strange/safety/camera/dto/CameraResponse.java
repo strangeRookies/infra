@@ -2,6 +2,7 @@ package com.strange.safety.camera.dto;
 
 import com.strange.safety.camera.entity.Camera;
 import com.strange.safety.camera.entity.CameraStatus;
+import com.strange.safety.camera.entity.CameraSourceType;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -22,6 +23,8 @@ public class CameraResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean aiEnabled;
+    private CameraSourceType sourceType;
+    private String assignedVideoPath;
 
     public static CameraResponse from(Camera camera) {
         return CameraResponse.builder()
@@ -36,6 +39,8 @@ public class CameraResponse {
                 .createdAt(camera.getCreatedAt())
                 .updatedAt(camera.getUpdatedAt())
                 .aiEnabled(camera.isAiEnabled())
+                .sourceType(camera.getSourceType())
+                .assignedVideoPath(camera.getAssignedVideoPath())
                 .build();
     }
 }

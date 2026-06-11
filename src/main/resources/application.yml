@@ -71,3 +71,9 @@ app:
 logging:
   level:
     com.strange.safety: INFO
+
+simulation:
+  video:
+    pool-path: ${SIMULATION_VIDEO_POOL_PATH:video_pool}
+  rtsp:
+    base-url: ${SIMULATION_RTSP_BASE_URL:rtsp://localhost:8554}

@@ -50,8 +50,9 @@ public record SafetyEventDto(
          *
          * ISO-8601 문자열이면 Jackson이 직접 파싱한다.
          */
+        @JsonProperty("timestamp")
         @JsonAlias({"timestamp", "detected_at", "detectedAt"})
-        Number rawTimestamp,
+        Object rawTimestamp,
 
         String severity,
 
@@ -82,9 +83,22 @@ public record SafetyEventDto(
      */
     public Instant resolvedTimestamp() {
         if (rawTimestamp == null) return null;
-        double epochSeconds = rawTimestamp.doubleValue();
-        long seconds = (long) epochSeconds;
-        long nanos = Math.round((epochSeconds - seconds) * 1_000_000_000L);
-        return Instant.ofEpochSecond(seconds, nanos);
+        
+        if (rawTimestamp instanceof Number num) {
+            double epochSeconds = num.doubleValue();
+            long seconds = (long) epochSeconds;
+            long nanos = Math.round((epochSeconds - seconds) * 1_000_000_000L);
+            return Instant.ofEpochSecond(seconds, nanos);
+        }
+        
+        if (rawTimestamp instanceof String str) {
+            try {
+                return Instant.parse(str);
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        
+        return null;
     }
 }

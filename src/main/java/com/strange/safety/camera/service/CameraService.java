@@ -26,6 +26,8 @@ public class CameraService {
     private final CameraRepository cameraRepository;
     private final FacilityService facilityService;
     private final AesUtil aesUtil;
+    private final VirtualCameraPoolService virtualCameraPoolService;
+    private final RtspSimulationService rtspSimulationService;
 
     @Transactional
     public CameraResponse createCamera(Long userId, Long facilityId, CreateCameraRequest request) {
@@ -36,18 +38,32 @@ public class CameraService {
             encryptedPassword = aesUtil.encrypt(request.getCameraPassword());
         }
 
+        String finalRtspUrl = request.getRtspUrl();
+        String assignedVideoPath = null;
+        
+        if (request.getSourceType() == com.strange.safety.camera.entity.CameraSourceType.SIMULATED_RTSP) {
+            assignedVideoPath = virtualCameraPoolService.assignVideo();
+            finalRtspUrl = rtspSimulationService.generateRtspUrl(request.getCameraLoginId());
+        }
+
         Camera camera = Camera.builder()
                 .facility(facility)
                 .cameraLoginId(request.getCameraLoginId())
                 .cameraName(request.getCameraName())
                 .cameraSerialNumber(request.getCameraSerialNumber())
                 .cameraPasswordEncrypted(encryptedPassword)
-                .rtspUrl(request.getRtspUrl())
+                .rtspUrl(finalRtspUrl)
                 .locationDescription(request.getLocationDescription())
                 .aiEnabled(request.getAiEnabled())
+                .sourceType(request.getSourceType())
+                .assignedVideoPath(assignedVideoPath)
                 .build();
 
         camera = cameraRepository.save(camera);
+
+        if (camera.getSourceType() == com.strange.safety.camera.entity.CameraSourceType.SIMULATED_RTSP) {
+            rtspSimulationService.startSimulation(camera.getCameraLoginId(), camera.getAssignedVideoPath(), camera.getRtspUrl());
+        }
 
         return CameraResponse.from(camera);
     }
@@ -64,7 +80,7 @@ public class CameraService {
         Camera camera = cameraRepository.findById(cameraId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CAMERA_NOT_FOUND));
         facilityService.getFacilityWithOwnerCheck(userId, camera.getFacility().getId());
-        camera.update(request.getCameraName(), request.getCameraSerialNumber(), request.getRtspUrl(), request.getStatus(), request.getLocationDescription(), request.getAiEnabled());
+        camera.update(request.getCameraName(), request.getCameraSerialNumber(), request.getRtspUrl(), request.getStatus(), request.getLocationDescription(), request.getAiEnabled(), request.getSourceType(), request.getAssignedVideoPath());
 
         return CameraResponse.from(camera);
     }
@@ -74,6 +90,11 @@ public class CameraService {
         Camera camera = cameraRepository.findById(cameraId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CAMERA_NOT_FOUND));
         facilityService.getFacilityWithOwnerCheck(userId, camera.getFacility().getId());
+        
+        if (camera.getSourceType() == com.strange.safety.camera.entity.CameraSourceType.SIMULATED_RTSP) {
+            rtspSimulationService.stopSimulation(camera.getCameraLoginId());
+        }
+        
         camera.deactivate();
     }
 

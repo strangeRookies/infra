@@ -139,21 +139,23 @@ public class MqttSafetyEventSubscriber implements MqttCallbackExtended {
 
     private void handleSafetyEvent(String payload) {
         try {
+            log.info("[MQTT Debug] Parsing safety event payload: {}", payload);
             SafetyEventDto event = objectMapper.readValue(payload, SafetyEventDto.class);
-
+            log.info("[MQTT Debug] Parsed event. type={}, cameraId={}", event.type(), event.cameraId());
+            
             // 1. DB 저장
             alertEventService.createEvent(event);
-
+            log.info("[MQTT Debug] DB save successful for cameraId={}", event.cameraId());
+            
             // 2. WebSocket 알림
             alertBroadcastService.broadcast(event);
+            log.info("[MQTT Debug] Broadcast successful for cameraId={}", event.cameraId());
 
             // 3. FCM 모바일 푸시 알림
             fcmService.sendAlertNotification(event);
 
-        } catch (JsonProcessingException ex) {
-            log.error("Failed to parse MQTT safety event JSON: payload={}", payload, ex);
-        } catch (RuntimeException ex) {
-            log.error("Failed to process MQTT safety event: payload={}", payload, ex);
+        } catch (Exception e) {
+            log.error("[MQTT Debug] Failed to process MQTT safety event: payload={}, error={}", payload, e.getMessage(), e);
         }
     }
 
