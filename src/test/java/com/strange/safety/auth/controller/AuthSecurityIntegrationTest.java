@@ -115,6 +115,17 @@ class AuthSecurityIntegrationTest {
     }
 
     @Test
+    void forbiddenEndpointReturnsAccessDeniedCode() throws Exception {
+        String accessToken = jwtTokenProvider.createAccessToken(activeUser);
+
+        mockMvc.perform(get("/api/scenarios")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("AUTH_ACCESS_DENIED"));
+    }
+
+    @Test
     void marketingAgreementCanBeWithdrawnWithValidJwt() throws Exception {
         String accessToken = jwtTokenProvider.createAccessToken(activeUser);
 

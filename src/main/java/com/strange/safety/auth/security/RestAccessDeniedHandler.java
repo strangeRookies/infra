@@ -27,7 +27,7 @@ public class RestAccessDeniedHandler implements AccessDeniedHandler {
             HttpServletResponse response,
             AccessDeniedException accessDeniedException
     ) throws IOException, ServletException {
-        ErrorCode errorCode = ErrorCode.AUTH_FORBIDDEN;
+        ErrorCode errorCode = ErrorCode.AUTH_ACCESS_DENIED;
         response.setStatus(errorCode.getStatus().value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
