@@ -2,8 +2,10 @@ package com.strange.safety.camera.dto;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
+@Setter
 @NoArgsConstructor
 public class CreateCameraRequest {
 

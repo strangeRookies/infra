@@ -47,7 +47,7 @@ public class Camera extends BaseEntity {
     @Column(name = "location_description")
     private String locationDescription;
 
-    @Column(name = "ai_enabled", nullable = false)
+    @Column(name = "ai_enabled", nullable = false, columnDefinition = "boolean default true")
     private boolean aiEnabled;
 
     /**
@@ -55,7 +55,7 @@ public class Camera extends BaseEntity {
      * 관리자 운영 상태인 {@link CameraStatus}와 별개로 관리된다.
      */
     @Enumerated(EnumType.STRING)
-    @Column(name = "connection_status", nullable = false, length = 20)
+    @Column(name = "connection_status", nullable = false, length = 20, columnDefinition = "varchar(20) default 'UNKNOWN'")
     private CameraConnectionStatus connectionStatus;
 
     /** AI 서버가 마지막으로 연결 상태를 보고한 시각 (UTC) */
