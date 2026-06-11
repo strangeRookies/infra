@@ -216,8 +216,8 @@ export function NurseDashboard({
       setShowNewCamPw(false);
       setShowAddCamera(false);
       refreshCameras();
-    } catch (error) {
-      alert('카메라 등록에 실패했습니다.');
+    } catch (error: any) {
+      alert(`카메라 등록에 실패했습니다: ${error.message || error}`);
     }
   };
 
