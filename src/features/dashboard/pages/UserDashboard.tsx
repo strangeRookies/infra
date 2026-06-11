@@ -40,6 +40,17 @@ interface NurseDashboardProps {
   onAddInquiry: (data: Omit<Inquiry, 'id' | 'createdAt'>) => void;
 }
 
+const HARDCODED_LIVE_CAMERA: LiveCamera = {
+  id: 'cam_03',
+  cameraLoginId: 'cam_03',
+  cameraDbId: 'hardcoded-cam-03',
+  name: 'cam_03',
+  location: '임시 하드코딩 카메라',
+  streamUrl: 'http://localhost:8012/stream',
+  connectionStatus: 'online',
+  eventStatus: 'normal',
+};
+
 function toLiveCameraConnectionStatus(camera: CameraResponse): CameraConnectionStatus {
   if (camera.status !== 'ACTIVE') return 'offline';
 
@@ -109,20 +120,19 @@ export function NurseDashboard({
 
   // --- Derived Live Cameras for Monitoring (using backend data) ---
   const liveCameras = useMemo<LiveCamera[]>(() => {
-    return registeredCameras.map(cam => ({
-      id: cam.cameraLoginId || cam.cameraId.toString(),
-      cameraLoginId: cam.cameraLoginId,
-      cameraDbId: cam.cameraId.toString(),
-      name: cam.cameraName,
-      location: cam.locationDescription,
-      streamUrl: toLiveCameraStreamUrl(cam),
-      connectionStatus: toLiveCameraConnectionStatus(cam),
-      eventStatus: 'normal' as CameraEventStatus,
-    }));
-  }, [registeredCameras]);
+    return [HARDCODED_LIVE_CAMERA];
+  }, []);
 
   // --- Facility Fetch Logic (Automatic) ---
   const loadInitialData = useCallback(async () => {
+    if (userType === 'individual') {
+      setFacilities([]);
+      setCurrentFacility(null);
+      setRegisteredCameras([]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       const userFacilities = await fetchMyFacilities();
@@ -135,7 +145,7 @@ export function NurseDashboard({
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userType]);
 
   useEffect(() => {
     loadInitialData();
@@ -143,6 +153,10 @@ export function NurseDashboard({
 
   // --- Camera Fetch Logic ---
   const refreshCameras = useCallback(async () => {
+    if (userType === 'individual') {
+      setRegisteredCameras([]);
+      return;
+    }
     if (!currentFacility) return;
     try {
       setIsLoadingCameras(true);
@@ -153,7 +167,7 @@ export function NurseDashboard({
     } finally {
       setIsLoadingCameras(false);
     }
-  }, [currentFacility]);
+  }, [currentFacility, userType]);
 
   useEffect(() => {
     refreshCameras();
