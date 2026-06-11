@@ -129,7 +129,7 @@ public class AlertEventService {
 
     @Transactional
     public AlertEventResponse createEvent(SafetyEventDto dto) {
-        String cameraIdVal = dto.cameraId() != null ? dto.cameraId() : "cam_01";
+        String cameraIdVal = firstNonBlank(dto.cameraLoginId(), dto.cameraId(), "cam_01");
         
         // Convert "cam1", "cam2" or "CCTV-01" into DB format "cam_01"
         if (cameraIdVal.startsWith("cam") && cameraIdVal.length() == 4) {
@@ -141,8 +141,8 @@ public class AlertEventService {
         String finalCameraIdVal = cameraIdVal;
         Camera camera = cameraRepository.findByCameraLoginId(finalCameraIdVal)
                 .orElseThrow(() -> {
-                    log.error("Failed to map MQTT safety event camera_id: rawCameraId={}, normalizedCameraLoginId={}",
-                            dto.cameraId(), finalCameraIdVal);
+                    log.error("Failed to map MQTT safety event camera: rawCameraLoginId={}, rawCameraId={}, normalizedCameraLoginId={}",
+                            dto.cameraLoginId(), dto.cameraId(), finalCameraIdVal);
                     return new CustomException(ErrorCode.CAMERA_NOT_FOUND);
                 });
 
@@ -176,6 +176,15 @@ public class AlertEventService {
         log.info("Saved MQTT safety alert event: alertEventId={}, cameraLoginId={}, scenarioType={}, severity={}, confidence={}, trackId={}",
                 saved.getId(), finalCameraIdVal, scenarioType, severity, confidenceScore, dto.trackId());
         return AlertEventResponse.from(saved);
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+        return null;
     }
 
     private String serializeBoundingBox(SafetyEventDto dto) {

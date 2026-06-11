@@ -1,11 +1,13 @@
 package com.strange.safety.camera.dto;
 
 import com.strange.safety.camera.entity.Camera;
+import com.strange.safety.camera.entity.CameraConnectionStatus;
 import com.strange.safety.camera.entity.CameraStatus;
 import com.strange.safety.camera.entity.CameraSourceType;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 @Getter
@@ -25,6 +27,8 @@ public class CameraResponse {
     private boolean aiEnabled;
     private CameraSourceType sourceType;
     private String assignedVideoPath;
+    private CameraConnectionStatus connectionStatus;
+    private Instant lastConnectionReportAt;
 
     public static CameraResponse from(Camera camera) {
         return CameraResponse.builder()
@@ -41,6 +45,8 @@ public class CameraResponse {
                 .aiEnabled(camera.isAiEnabled())
                 .sourceType(camera.getSourceType())
                 .assignedVideoPath(camera.getAssignedVideoPath())
+                .connectionStatus(camera.getConnectionStatus())
+                .lastConnectionReportAt(camera.getLastConnectionReportAt())
                 .build();
     }
 }

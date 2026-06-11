@@ -43,6 +43,10 @@ public record SafetyEventDto(
         @JsonAlias({"camera_id", "cameraId"})
         String cameraId,
 
+        @JsonProperty("camera_login_id")
+        @JsonAlias({"camera_login_id", "cameraLoginId"})
+        String cameraLoginId,
+
         /**
          * AI 서버가 보내는 timestamp.
          * float (Unix epoch 초)이면 Jackson이 직렬화 실패하므로
