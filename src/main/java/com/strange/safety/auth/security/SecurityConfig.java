@@ -55,6 +55,7 @@ public class SecurityConfig {
                                 "/api/auth/verifications/sms",
                                 "/api/auth/verifications/sms/confirm",
                                 "/api/auth/password-reset/verifications/sms",
+                                "/api/auth/password-reset/verifications/sms/confirm",
                                 "/api/auth/password-reset",
                                 "/api/auth/email-availability",
                                 "/api/companies/business-number-availability",

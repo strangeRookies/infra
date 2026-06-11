@@ -218,11 +218,70 @@ class AuthSecurityIntegrationTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.verificationId").exists());
+                .andExpect(jsonPath("$.data.expiresIn").value(300))
+                .andExpect(jsonPath("$.data.verificationId").doesNotExist());
 
         SmsVerification verification = smsVerificationRepository.findAll().get(0);
         org.assertj.core.api.Assertions.assertThat(verification.getPhoneNumber()).isEqualTo("01012345678");
         org.assertj.core.api.Assertions.assertThat(verification.getPurpose()).isEqualTo(VerificationPurpose.RESET_PASSWORD);
+    }
+
+    @Test
+    void passwordResetSmsEndpointReturnsSameShapeWhenUserDoesNotExist() throws Exception {
+        mockMvc.perform(post("/api/auth/password-reset/verifications/sms")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "missing@example.com",
+                                  "phone": "010-1234-5678"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.expiresIn").value(300))
+                .andExpect(jsonPath("$.data.verificationId").doesNotExist());
+
+        org.assertj.core.api.Assertions.assertThat(smsVerificationRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    void passwordResetSmsConfirmIssuesVerificationToken() throws Exception {
+        SmsVerification verification = SmsVerification.issue(
+                "01012345678",
+                VerificationPurpose.RESET_PASSWORD,
+                passwordEncoder.encode("123456"),
+                Instant.now().plusSeconds(300)
+        );
+        smsVerificationRepository.save(verification);
+
+        mockMvc.perform(post("/api/auth/password-reset/verifications/sms/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "security@example.com",
+                                  "phone": "010-1234-5678",
+                                  "code": "123456"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.verified").value(true))
+                .andExpect(jsonPath("$.data.verificationToken").exists());
+    }
+
+    @Test
+    void passwordResetSmsConfirmUsesGenericErrorWhenUserDoesNotExist() throws Exception {
+        mockMvc.perform(post("/api/auth/password-reset/verifications/sms/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "missing@example.com",
+                                  "phone": "010-1234-5678",
+                                  "code": "123456"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("AUTH_INVALID_VERIFICATION"));
     }
 
     @Test
@@ -279,6 +338,22 @@ class AuthSecurityIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(java.util.Map.of(
                                 "email", "security@example.com",
+                                "phone", "01012345678",
+                                "verificationToken", verificationToken,
+                                "newPassword", "NewPassword123!"
+                        ))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("AUTH_INVALID_VERIFICATION"));
+    }
+
+    @Test
+    void passwordResetUsesGenericErrorWhenUserDoesNotExist() throws Exception {
+        String verificationToken = verifiedToken("01012345678", VerificationPurpose.RESET_PASSWORD);
+
+        mockMvc.perform(post("/api/auth/password-reset")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(java.util.Map.of(
+                                "email", "missing@example.com",
                                 "phone", "01012345678",
                                 "verificationToken", verificationToken,
                                 "newPassword", "NewPassword123!"

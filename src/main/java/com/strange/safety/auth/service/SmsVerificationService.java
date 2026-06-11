@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class SmsVerificationService {
 
-    private static final long CODE_EXPIRATION_SECONDS = 300;
+    public static final long CODE_EXPIRATION_SECONDS = 300;
     private static final long TOKEN_EXPIRATION_SECONDS = 900;
     private static final String MOBILE_PHONE_PATTERN = "^010\\d{8}$";
 
@@ -56,11 +56,24 @@ public class SmsVerificationService {
     public SmsVerificationConfirmResponse confirm(SmsVerificationConfirmRequest request) {
         SmsVerification verification = smsVerificationRepository.findById(request.verificationId())
                 .orElseThrow(() -> new CustomException(ErrorCode.AUTH_INVALID_VERIFICATION));
+        return confirmVerification(verification, request.code());
+    }
+
+    @Transactional(noRollbackFor = CustomException.class)
+    public SmsVerificationConfirmResponse confirmLatest(String phone, VerificationPurpose purpose, String code) {
+        String phoneNumber = normalizePhone(phone);
+        SmsVerification verification = smsVerificationRepository
+                .findTopByPhoneNumberAndPurposeAndVerifiedAtIsNullAndUsedAtIsNullOrderByIdDesc(phoneNumber, purpose)
+                .orElseThrow(() -> new CustomException(ErrorCode.AUTH_INVALID_VERIFICATION));
+        return confirmVerification(verification, code);
+    }
+
+    private SmsVerificationConfirmResponse confirmVerification(SmsVerification verification, String code) {
         Instant now = Instant.now();
         if (!verification.canConfirm(now)) {
             throw new CustomException(ErrorCode.AUTH_INVALID_VERIFICATION);
         }
-        if (!passwordEncoder.matches(request.code(), verification.getCodeHash())) {
+        if (!passwordEncoder.matches(code, verification.getCodeHash())) {
             verification.recordFailure();
             throw new CustomException(ErrorCode.AUTH_INVALID_VERIFICATION);
         }

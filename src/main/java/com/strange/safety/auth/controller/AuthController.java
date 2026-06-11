@@ -46,10 +46,17 @@ public class AuthController {
     }
 
     @PostMapping("/password-reset/verifications/sms")
-    public ApiResponse<SmsVerificationResponse> sendPasswordResetSms(
+    public ApiResponse<PasswordResetSmsResponse> sendPasswordResetSms(
             @Valid @RequestBody PasswordResetSmsRequest request
     ) {
         return ApiResponse.success("비밀번호 재설정 인증번호가 발급되었습니다.", passwordResetService.sendSms(request));
+    }
+
+    @PostMapping("/password-reset/verifications/sms/confirm")
+    public ApiResponse<SmsVerificationConfirmResponse> confirmPasswordResetSms(
+            @Valid @RequestBody PasswordResetSmsConfirmRequest request
+    ) {
+        return ApiResponse.success("휴대폰 인증이 완료되었습니다.", passwordResetService.confirmSms(request));
     }
 
     @PostMapping("/password-reset")

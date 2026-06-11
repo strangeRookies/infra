@@ -142,6 +142,22 @@ class SmsVerificationServiceTest {
     }
 
     @Test
+    void confirmLatestUsesPhoneAndPurposeToIssueVerificationToken() {
+        SmsVerification verification = SmsVerification.issue(
+                "01012345678", VerificationPurpose.RESET_PASSWORD,
+                new BCryptPasswordEncoder().encode("123456"), Instant.now().plusSeconds(300));
+        when(repository.findTopByPhoneNumberAndPurposeAndVerifiedAtIsNullAndUsedAtIsNullOrderByIdDesc(
+                "01012345678", VerificationPurpose.RESET_PASSWORD)).thenReturn(Optional.of(verification));
+        when(tokenHasher.hash(any(String.class))).thenReturn("token-hash");
+
+        var confirmed = service.confirmLatest("010-1234-5678", VerificationPurpose.RESET_PASSWORD, "123456");
+
+        assertThat(confirmed.verified()).isTrue();
+        assertThat(confirmed.verificationToken()).isNotBlank();
+        assertThat(verification.getVerificationTokenHash()).isEqualTo("token-hash");
+    }
+
+    @Test
     void confirmFailsAfterFiveWrongAttempts() {
         SmsVerification verification = SmsVerification.issue(
                 "01012345678", VerificationPurpose.SIGN_UP,
