@@ -2,7 +2,6 @@ package com.strange.safety.auth.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
-import java.time.LocalDate;
 import com.strange.safety.user.dto.AgreementRequest;
 
 public record CorporateSignupRequest(
@@ -12,7 +11,6 @@ public record CorporateSignupRequest(
         @NotBlank String verificationToken,
         @Valid @NotNull CompanyRequest company,
         @Valid @NotNull ManagerRequest manager,
-        @Valid InstallationRequest installation,
         AgreementRequest agreements
 ) {
     public record CompanyRequest(
@@ -35,13 +33,6 @@ public record CorporateSignupRequest(
             String rank,
             @Email @NotBlank String email,
             @NotBlank String contact
-    ) {
-    }
-
-    public record InstallationRequest(
-            @NotBlank String count,
-            @NotNull LocalDate preferredDate,
-            String specialRequest
     ) {
     }
 }

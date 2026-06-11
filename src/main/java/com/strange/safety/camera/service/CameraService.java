@@ -105,4 +105,11 @@ public class CameraService {
                 .map(CameraResponse::from)
                 .collect(Collectors.toList());
     }
+
+    public List<CameraResponse> getCamerasForAdmin(Long facilityId) {
+        facilityService.getFacilityForAdmin(facilityId);
+        return cameraRepository.findByFacility_Id(facilityId).stream()
+                .map(CameraResponse::from)
+                .collect(Collectors.toList());
+    }
 }

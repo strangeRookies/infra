@@ -24,7 +24,6 @@ import com.strange.safety.user.entity.AgreementType;
 import com.strange.safety.user.repository.UserAgreementRepository;
 import com.strange.safety.user.repository.UserRepository;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -74,7 +73,7 @@ class SignupServiceIntegrationTest {
         String token = verifiedToken("01011112222");
 
         var response = signupService.signupIndividual(individualRequest(
-                "individual@example.com", "01011112222", token, "70s"));
+                "individual@example.com", "010-1111-2222", token, "70s"));
 
         assertThat(response.role()).isEqualTo(Role.INDIVIDUAL);
         assertThat(userRepository.count()).isEqualTo(1);
@@ -83,10 +82,12 @@ class SignupServiceIntegrationTest {
         assertThat(protectedTargetRepository.count()).isEqualTo(1);
         assertThat(emergencyContactRepository.count()).isEqualTo(1);
         assertThat(userAgreementRepository.count()).isEqualTo(3);
+        assertThat(userRepository.findAll().get(0).getPhoneNumber()).isEqualTo("01011112222");
 
         var facility = facilityRepository.findAll().get(0);
         assertThat(facility.getDistrict()).isEqualTo("마포구");
         assertThat(facility.getEmergency119Jurisdiction()).isEqualTo("마포소방서");
+        assertThat(emergencyContactRepository.findAll().get(0).getPhoneNumber()).isEqualTo("021234567");
     }
 
     @Test
@@ -144,43 +145,47 @@ class SignupServiceIntegrationTest {
     }
 
     @Test
+    void individualSignupRejectsInvalidMobilePhone() {
+        String token = verifiedToken("01011112222");
+
+        assertThatThrownBy(() -> signupService.signupIndividual(individualRequest(
+                "invalid-phone@example.com", "011-1111-2222", token, "70s")))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.COMMON_INVALID_INPUT);
+
+        assertThat(userRepository.count()).isZero();
+        assertThat(userAgreementRepository.count()).isZero();
+    }
+
+    @Test
     void corporateSignupCreatesProfile() {
         String token = verifiedToken("01055556666");
 
         var response = signupService.signupCorporate(corporateRequest(
-                "corporate@example.com", "01055556666", token, "123-45-67890", null));
+                "corporate@example.com", "01055556666", token, "123-45-67890"));
 
         assertThat(response.role()).isEqualTo(Role.CORPORATE);
         assertThat(userRepository.count()).isEqualTo(1);
         assertThat(companyProfileRepository.count()).isEqualTo(1);
-        assertThat(installationRequestRepository.count()).isZero();
         assertThat(userAgreementRepository.count()).isEqualTo(3);
 
         var profile = companyProfileRepository.findAll().get(0);
         assertThat(profile.getDistrict()).isEqualTo("강남구");
         assertThat(profile.getEmergency119Jurisdiction()).isEqualTo("강남소방서");
-    }
-
-    @Test
-    void corporateSignupCreatesInstallationRequestWhenProvided() {
-        String token = verifiedToken("01055556666");
-
-        signupService.signupCorporate(corporateRequest(
-                "corporate-installation@example.com", "01055556666", token, "123-45-67890"));
-
-        assertThat(companyProfileRepository.count()).isEqualTo(1);
-        assertThat(installationRequestRepository.count()).isEqualTo(1);
+        assertThat(profile.getManagerContact()).isEqualTo("025551234");
     }
 
     @Test
     void corporateSignupFailureRollsBackUserAndProfile() {
         String token = verifiedToken("01055556666");
-        var base = corporateRequest("x@example.com", "01055556666", token, "1234567890");
         var invalid = new CorporateSignupRequest(
                 "corporate-rollback@example.com", "Password123!", "01055556666", token,
-                base.company(),
-                base.manager(),
-                new CorporateSignupRequest.InstallationRequest("6-15", null, null),
+                new CorporateSignupRequest.CompanyRequest(
+                        "Smart Safety Hospital", "1234567890", "medical", "50-200",
+                        "99999", "Unknown address", null, null, null, null),
+                new CorporateSignupRequest.ManagerRequest(
+                        "company manager", "safety team", "manager", "manager@example.com", "02-555-1234"),
                 requiredAgreements(true)
         );
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
@@ -288,30 +293,19 @@ class SignupServiceIntegrationTest {
                         "care target", "parent", ageGroup, "04123",
                         "서울특별시 마포구 월드컵로 1", "101", "공덕동", "강남구", "강남소방서"),
                 List.of(new IndividualSignupRequest.EmergencyContactRequest(
-                        "emergency contact", "child", "01033334444")),
+                        "emergency contact", "child", "02-123-4567")),
                 agreements
         );
     }
 
     private CorporateSignupRequest corporateRequest(String email, String phone, String token, String businessNumber) {
-        return corporateRequest(
-                email, phone, token, businessNumber,
-                new CorporateSignupRequest.InstallationRequest(
-                        "6-15", LocalDate.of(2026, 7, 1), "outdoor camera installation")
-        );
-    }
-
-    private CorporateSignupRequest corporateRequest(String email, String phone, String token,
-                                                    String businessNumber,
-                                                    CorporateSignupRequest.InstallationRequest installation) {
         return new CorporateSignupRequest(
                 email, "Password123!", phone, token,
                 new CorporateSignupRequest.CompanyRequest(
                         "Smart Safety Hospital", businessNumber, "medical", "50-200",
                         "06123", "서울특별시 강남구 테헤란로 1", "Safety Office", "역삼동", "마포구", "마포소방서"),
                 new CorporateSignupRequest.ManagerRequest(
-                        "company manager", "safety team", "manager", "manager@example.com", phone),
-                installation,
+                        "company manager", "safety team", "manager", "manager@example.com", "02-555-1234"),
                 requiredAgreements(true)
         );
     }

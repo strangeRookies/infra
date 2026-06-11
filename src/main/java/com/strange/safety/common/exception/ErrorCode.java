@@ -15,7 +15,6 @@ public enum ErrorCode {
     AUTH_EXPIRED_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH_EXPIRED_TOKEN", "만료된 토큰입니다."),
     AUTH_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "AUTH_UNAUTHORIZED", "인증이 필요합니다."),
     AUTH_ACCESS_DENIED(HttpStatus.FORBIDDEN, "AUTH_ACCESS_DENIED", "접근 권한이 없습니다."),
-    AUTH_FORBIDDEN(HttpStatus.FORBIDDEN, "AUTH_FORBIDDEN", "접근 권한이 없습니다."),
     AUTH_INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_INVALID_CREDENTIALS", "로그인 정보가 올바르지 않습니다."),
     AUTH_INVALID_PASSWORD(HttpStatus.UNAUTHORIZED, "AUTH_INVALID_PASSWORD", "이메일 또는 비밀번호가 올바르지 않습니다."),
     AUTH_INVALID_VERIFICATION(HttpStatus.BAD_REQUEST, "AUTH_INVALID_VERIFICATION", "유효하지 않은 휴대폰 인증입니다."),
@@ -48,7 +47,10 @@ public enum ErrorCode {
     SCENARIO_NOT_FOUND(HttpStatus.NOT_FOUND, "SCENARIO_NOT_FOUND", "시나리오를 찾을 수 없습니다."),
     SCENARIO_PARAMS_NOT_FOUND(HttpStatus.NOT_FOUND, "SCENARIO_PARAMS_NOT_FOUND", "시나리오 파라미터를 찾을 수 없습니다."),
 
-    INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "INQUIRY_NOT_FOUND", "문의 내역을 찾을 수 없습니다.");
+    INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "INQUIRY_NOT_FOUND", "문의 내역을 찾을 수 없습니다."),
+
+    EXCEL_INVALID_FORMAT(HttpStatus.BAD_REQUEST, "EXCEL_INVALID_FORMAT", "엑셀 파일 형식이 올바르지 않습니다. (.xls, .xlsx만 허용)"),
+    EXCEL_PARSE_ERROR(HttpStatus.BAD_REQUEST, "EXCEL_PARSE_ERROR", "엑셀 파일 파싱 중 오류가 발생했습니다.");
 
     private final HttpStatus status;
     private final String code;

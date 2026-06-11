@@ -1,0 +1,47 @@
+package com.strange.safety.camera.controller;
+
+import com.strange.safety.camera.dto.BulkCameraUploadResult;
+import com.strange.safety.camera.dto.CameraResponse;
+import com.strange.safety.camera.service.CameraExcelService;
+import com.strange.safety.camera.service.CameraService;
+import com.strange.safety.common.response.ApiResponse;
+import com.strange.safety.facility.dto.AdminFacilityResponse;
+import com.strange.safety.facility.service.FacilityService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/admin")
+public class AdminCameraController {
+
+    private final CameraExcelService cameraExcelService;
+    private final CameraService cameraService;
+    private final FacilityService facilityService;
+
+    @PostMapping(value = "/cameras/bulk", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<BulkCameraUploadResult>> bulkUpload(
+            @RequestParam("facilityId") Long facilityId,
+            @RequestParam("file") MultipartFile file) {
+        BulkCameraUploadResult result = cameraExcelService.bulkUpload(facilityId, file);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(result));
+    }
+
+    @GetMapping("/facilities")
+    public ResponseEntity<ApiResponse<List<AdminFacilityResponse>>> getAllFacilities() {
+        return ResponseEntity.ok(ApiResponse.success(facilityService.getAllFacilitiesForAdmin()));
+    }
+
+    @GetMapping("/facilities/{facilityId}/cameras")
+    public ResponseEntity<ApiResponse<List<CameraResponse>>> getCamerasByFacility(
+            @PathVariable Long facilityId) {
+        return ResponseEntity.ok(ApiResponse.success(cameraService.getCamerasForAdmin(facilityId)));
+    }
+}

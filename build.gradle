@@ -46,7 +46,10 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-integration'
     // ALB Health Check용 Actuator
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
-    
+
+    // 엑셀 파일 파싱
+    implementation 'org.apache.poi:poi:5.3.0'
+    implementation 'org.apache.poi:poi-ooxml:5.3.0'
 }
 
 tasks.named('test') {

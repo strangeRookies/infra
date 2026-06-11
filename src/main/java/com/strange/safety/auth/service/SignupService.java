@@ -7,7 +7,6 @@ import com.strange.safety.common.exception.CustomException;
 import com.strange.safety.common.exception.ErrorCode;
 import com.strange.safety.company.entity.CompanyProfile;
 import com.strange.safety.company.repository.CompanyProfileRepository;
-import com.strange.safety.company.repository.InstallationRequestRepository;
 import com.strange.safety.emergency.entity.EmergencyContact;
 import com.strange.safety.emergency.repository.EmergencyContactRepository;
 import com.strange.safety.facility.dto.EmergencyJurisdictionResolveRequest;
@@ -32,7 +31,6 @@ public class SignupService {
 
     private final UserRepository userRepository;
     private final CompanyProfileRepository companyProfileRepository;
-    private final InstallationRequestRepository installationRequestRepository;
     private final FacilityRepository facilityRepository;
     private final UserFacilityRepository userFacilityRepository;
     private final ProtectedTargetRepository protectedTargetRepository;
@@ -77,7 +75,7 @@ public class SignupService {
             contacts.forEach(contact -> emergencyContactRepository.save(EmergencyContact.builder()
                     .guardianUser(user).protectedTarget(target).name(contact.name())
                     .relationship(contact.relation())
-                    .phoneNumber(smsVerificationService.normalizePhone(contact.phone()))
+                    .phoneNumber(normalizeContactNumber(contact.phone()))
                     .build()));
         }
         return SignupResponse.from(user);
@@ -99,22 +97,15 @@ public class SignupService {
         CorporateSignupRequest.ManagerRequest manager = request.manager();
         EmergencyJurisdictionResponse jurisdiction = resolveJurisdiction(
                 company.postcode(), company.address(), company.addressDetail(), company.region3DepthName());
-        CompanyProfile profile = companyProfileRepository.save(CompanyProfile.builder()
+        companyProfileRepository.save(CompanyProfile.builder()
                 .user(user).companyName(company.name()).businessRegistrationNumber(businessNumber)
                 .industry(company.industry()).companySize(company.size()).postalCode(company.postcode())
                 .address(company.address()).addressDetail(company.addressDetail()).district(jurisdiction.district())
                 .emergency119Jurisdiction(jurisdiction.jurisdiction()).managerName(manager.name())
                 .managerDepartment(manager.department()).managerRank(manager.rank())
                 .managerEmail(normalizeEmail(manager.email()))
-                .managerContact(smsVerificationService.normalizePhone(manager.contact()))
+                .managerContact(normalizeContactNumber(manager.contact()))
                 .build());
-        CorporateSignupRequest.InstallationRequest installation = request.installation();
-        if (installation != null) {
-            installationRequestRepository.save(com.strange.safety.company.entity.InstallationRequest.builder()
-                    .companyProfile(profile).installationCount(installation.count())
-                    .preferredDate(installation.preferredDate()).specialRequest(installation.specialRequest())
-                    .build());
-        }
         return SignupResponse.from(user);
     }
 
@@ -149,6 +140,10 @@ public class SignupService {
 
     private String normalizeNumber(String value) {
         return value.replaceAll("[^0-9]", "");
+    }
+
+    private String normalizeContactNumber(String value) {
+        return value == null ? null : normalizeNumber(value);
     }
 
     private EmergencyJurisdictionResponse resolveJurisdiction(
