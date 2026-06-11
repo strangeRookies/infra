@@ -71,6 +71,7 @@ export function NurseDashboard({
   const [newCamRtspUrl, setNewCamRtspUrl] = useState('');
   const [newCamLocation, setNewCamLocation] = useState('');
   const [newCamPassword, setNewCamPassword] = useState('');
+  const [newCamSourceType, setNewCamSourceType] = useState<'REAL_RTSP' | 'SIMULATED_RTSP'>('REAL_RTSP');
   const [showNewCamPw, setShowNewCamPw] = useState(false);
   const [showCamPwId, setShowCamPwId] = useState<string | null>(null);
 
@@ -204,8 +205,9 @@ export function NurseDashboard({
         cameraSerialNumber: newCamSerialNumber.trim(),
         cameraLoginId: newCamLoginId.trim() || undefined,
         cameraPassword: newCamPassword.trim() || undefined,
-        rtspUrl: newCamRtspUrl.trim() || undefined,
+        rtspUrl: newCamSourceType === 'SIMULATED_RTSP' ? undefined : newCamRtspUrl.trim() || undefined,
         locationDescription: newCamLocation.trim() || '미지정',
+        sourceType: newCamSourceType,
       });
       setNewCamName('');
       setNewCamSerialNumber('');
@@ -213,6 +215,7 @@ export function NurseDashboard({
       setNewCamRtspUrl('');
       setNewCamLocation('');
       setNewCamPassword('');
+      setNewCamSourceType('REAL_RTSP');
       setShowNewCamPw(false);
       setShowAddCamera(false);
       refreshCameras();
@@ -255,6 +258,8 @@ export function NurseDashboard({
       location: cam.locationDescription,
       status: cam.status,
       rtspUrl: cam.rtspUrl,
+      sourceType: cam.sourceType,
+      assignedVideoPath: cam.assignedVideoPath,
       password: '****'
     }));
   }, [registeredCameras]);
@@ -465,6 +470,7 @@ export function NurseDashboard({
           newCamSerialNumber={newCamSerialNumber}
           newCamPassword={newCamPassword}
           newCamRtspUrl={newCamRtspUrl}
+          newCamSourceType={newCamSourceType}
           showNewCamPw={showNewCamPw}
           onClose={() => {
             setShowAddCamera(false);
@@ -476,6 +482,7 @@ export function NurseDashboard({
           onSerialNumberChange={setNewCamSerialNumber}
           onPasswordChange={setNewCamPassword}
           onRtspUrlChange={setNewCamRtspUrl}
+          onSourceTypeChange={setNewCamSourceType}
           onSubmit={handleAddCamera}
           onTogglePassword={() => setShowNewCamPw((prev) => !prev)}
         />

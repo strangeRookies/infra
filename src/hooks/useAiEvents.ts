@@ -133,8 +133,13 @@ export function useAiEvents(input: string | UseAiEventsOptions = {}): AiEventFee
     const isWebSocket = url.startsWith('ws://') || url.startsWith('wss://') || url.includes('/ws');
 
     const handleIncoming = (raw: Record<string, unknown>) => {
+      console.log('[useAiEvents] Received STOMP payload:', raw);
       const aiEvent = parseToAiEvent(raw);
-      if (!aiEvent) return;
+      if (!aiEvent) {
+        console.warn('[useAiEvents] Failed to parse event or it was filtered out.');
+        return;
+      }
+      console.log('[useAiEvents] Successfully parsed AI Event:', aiEvent);
       setFeedState((prev) => ({
         connectionState: 'connected',
         lastEventAt: Date.now(),
