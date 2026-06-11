@@ -75,6 +75,14 @@ export function DashboardCameraManagementView({
               <div className="p-3 space-y-1.5">
                 <p className="text-white font-bold text-sm truncate" title={camera.name}>{camera.name}</p>
                 <p className="text-slate-400 text-[10px] truncate">{camera.location}</p>
+                {camera.sourceType === 'SIMULATED_RTSP' && (
+                  <div className="mt-1 pt-1 border-t border-slate-800">
+                    <p className="text-[10px] text-blue-400 font-bold">시뮬레이션 모드</p>
+                    <p className="text-[9px] text-slate-500 truncate" title={camera.assignedVideoPath}>
+                      영상: {camera.assignedVideoPath ? camera.assignedVideoPath.split('/').pop() : '미배정'}
+                    </p>
+                  </div>
+                )}
                 {camera.password && (
                   <div className="flex items-center gap-1.5 pt-0.5">
                     <KeyRound className="w-3 h-3 text-slate-500 flex-shrink-0" />

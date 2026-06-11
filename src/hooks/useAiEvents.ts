@@ -7,6 +7,7 @@ import { aiEventFingerprint, reduceAiEventFeed, STALE_EVENT_WINDOW_MS } from '..
 const unknownRecordSchema = z.record(z.string(), z.unknown());
 const aiEventSchema = z.object({
   camera_id: z.string(),
+  camera_login_id: z.string().optional(),
   frame_idx: z.number().default(0),
   timestamp: z.number(),
   event_type: z.string(),
@@ -21,6 +22,7 @@ const aiEventSchema = z.object({
 
 export interface AiEvent {
   readonly camera_id: string;
+  readonly camera_login_id?: string;
   readonly frame_idx: number;
   readonly timestamp: number;
   readonly event_type: string;
@@ -58,7 +60,8 @@ function normalizeRawPayload(raw: Record<string, unknown>) {
         : Math.floor(Date.now() / 1000);
 
   return {
-    camera_id: (raw.camera_id ?? raw.cameraId) as string,
+    camera_id: (raw.camera_id ?? raw.cameraId ?? raw.camera_login_id ?? raw.cameraLoginId) as string,
+    camera_login_id: (raw.camera_login_id ?? raw.cameraLoginId) as string | undefined,
     event_type: (raw.event_type ?? raw.type) as string,
     timestamp: timestampVal,
     severity: (raw.severity ?? 'HIGH') as string,
@@ -133,8 +136,13 @@ export function useAiEvents(input: string | UseAiEventsOptions = {}): AiEventFee
     const isWebSocket = url.startsWith('ws://') || url.startsWith('wss://') || url.includes('/ws');
 
     const handleIncoming = (raw: Record<string, unknown>) => {
+      console.log('[useAiEvents] Received STOMP payload:', raw);
       const aiEvent = parseToAiEvent(raw);
-      if (!aiEvent) return;
+      if (!aiEvent) {
+        console.warn('[useAiEvents] Failed to parse event or it was filtered out.');
+        return;
+      }
+      console.log('[useAiEvents] Successfully parsed AI Event:', aiEvent);
       setFeedState((prev) => ({
         connectionState: 'connected',
         lastEventAt: Date.now(),

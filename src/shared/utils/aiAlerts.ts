@@ -13,7 +13,8 @@ export function isDangerAiEvent(event: AiEvent) {
 
 export function aiEventKey(event: AiEvent) {
   const trackId = event.track_id ?? 'no-track';
-  return `${event.camera_id}:${event.event_type}:${event.timestamp}:${trackId}`;
+  const cameraKey = event.camera_login_id ?? event.camera_id;
+  return `${cameraKey}:${event.event_type}:${event.timestamp}:${trackId}`;
 }
 
 // Re-export stable fingerprint from aiEventFeed so callers can import from one place
@@ -34,15 +35,21 @@ export function getSeverityTone(severity: string): 'critical' | 'warning' | 'inf
 
 
 export function findCameraForAiEvent(cameras: readonly LiveCamera[], event: AiEvent) {
-  const eventTokens = cameraIdTokens(event.camera_id);
+  const eventTokens = [
+    ...cameraIdTokens(event.camera_login_id),
+    ...cameraIdTokens(event.camera_id),
+  ].filter(Boolean);
   return cameras.find(camera => {
     const cameraTokens = new Set([
+      normalizeCameraToken(camera.cameraLoginId),
+      normalizeCameraToken(camera.cameraDbId),
       normalizeCameraToken(camera.id),
       normalizeCameraToken(camera.name),
       normalizeCameraToken(camera.location),
+      ...cameraIdTokens(camera.cameraLoginId),
       ...cameraIdTokens(camera.id),
       ...cameraIdTokens(camera.name),
-    ]);
+    ].filter(Boolean));
     return eventTokens.some(token => cameraTokens.has(token));
   });
 }
@@ -91,8 +98,14 @@ export function focusCameraFirst(cameras: readonly LiveCamera[], focusedCameraId
   return [focused, ...cameras.filter(camera => camera.id !== focusedCameraId)];
 }
 
-function cameraIdTokens(value: string) {
+function cameraIdTokens(value?: string) {
+  if (!value) {
+    return [];
+  }
   const normalized = normalizeCameraToken(value);
+  if (!normalized) {
+    return [];
+  }
   const numeric = normalized.match(/\d+/)?.[0];
   if (!numeric) {
     return [normalized];
@@ -102,6 +115,9 @@ function cameraIdTokens(value: string) {
   return [normalized, `camera${unpadded}`, `cam${unpadded}`, `cctv${unpadded}`, `cctv${padded}`];
 }
 
-function normalizeCameraToken(value: string) {
+function normalizeCameraToken(value?: string) {
+  if (!value) {
+    return '';
+  }
   return value.toLowerCase().replace(/[^a-z0-9]/g, '');
 }

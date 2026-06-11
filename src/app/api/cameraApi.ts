@@ -1,6 +1,8 @@
 import { apiRequest } from '../../shared/api/client';
 
 export type CameraStatus = 'ACTIVE' | 'INACTIVE';
+export type CameraSourceType = 'REAL_RTSP' | 'SIMULATED_RTSP';
+export type CameraConnectionStatus = 'CONNECTED' | 'DISCONNECTED' | 'RECONNECTING' | 'ERROR' | 'DISABLED' | 'UNKNOWN';
 
 export interface CameraResponse {
   cameraId: number;
@@ -13,6 +15,11 @@ export interface CameraResponse {
   locationDescription: string;
   createdAt: string;
   updatedAt: string;
+  sourceType?: CameraSourceType;
+  assignedVideoPath?: string;
+  connectionStatus?: CameraConnectionStatus;
+  lastConnectionReportAt?: string;
+  displayStreamUrl?: string;
 }
 
 export interface RegisterCameraRequest {
@@ -22,6 +29,7 @@ export interface RegisterCameraRequest {
   cameraPassword?: string;
   rtspUrl?: string;
   locationDescription?: string;
+  sourceType?: CameraSourceType;
 }
 
 export interface UpdateCameraRequest {
@@ -29,6 +37,7 @@ export interface UpdateCameraRequest {
   rtspUrl?: string;
   status?: CameraStatus;
   locationDescription?: string;
+  sourceType?: CameraSourceType;
 }
 
 /**

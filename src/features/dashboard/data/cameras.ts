@@ -3,6 +3,8 @@ export type CameraEventStatus = 'normal' | 'warning' | 'danger';
 
 export interface LiveCamera {
   id: string;
+  cameraLoginId?: string;
+  cameraDbId?: string;
   name: string;
   location: string;
   streamUrl: string;

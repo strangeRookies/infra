@@ -5,7 +5,7 @@ import { fetchMyInquiries, createInquiry } from '../api/inquiryApi';
 import { useAiAlertActions } from '../../../hooks/useAiAlertActions';
 import { useDashboardAlerts } from '../hooks/useDashboardAlerts';
 import type { MenuId, InquiryCategory, IncidentAlert } from '../types/dashboard';
-import type { LiveCamera, CameraConnectionStatus, CameraEventStatus } from '../data/cameras';
+import { streamUrl, type LiveCamera, type CameraConnectionStatus, type CameraEventStatus } from '../data/cameras';
 import {
   ALL_MENU_ITEMS,
   CATEGORIES,
@@ -30,11 +30,49 @@ import { DashboardQnaView } from '../components/DashboardQnaView';
 import { AddCameraModal } from '../modals/AddCameraModal';
 import { IncidentPlaybackModal } from '../modals/IncidentPlaybackModal';
 import { NewInquiryModal } from '../modals/NewInquiryModal';
+import { useCameraStatusWebSocket } from '../hooks/useCameraStatusWebSocket';
+
 
 interface NurseDashboardProps {
   username: string;
   userType: 'individual' | 'corporate';
   onLogout: () => void;
+}
+
+const HARDCODED_LIVE_CAMERA: LiveCamera = {
+  id: 'cam_03',
+  cameraLoginId: 'cam_03',
+  cameraDbId: 'hardcoded-cam-03',
+  name: 'cam_03',
+  location: '임시 하드코딩 카메라',
+  streamUrl: 'http://localhost:8012/stream',
+  connectionStatus: 'online',
+  eventStatus: 'normal',
+};
+
+function toLiveCameraConnectionStatus(camera: CameraResponse): CameraConnectionStatus {
+  if (camera.status !== 'ACTIVE') return 'offline';
+
+  switch (camera.connectionStatus) {
+    case 'CONNECTED':
+      return 'online';
+    case 'RECONNECTING':
+    case 'UNKNOWN':
+      return 'connecting';
+    case 'DISCONNECTED':
+    case 'ERROR':
+    case 'DISABLED':
+      return 'offline';
+    default:
+      return 'connecting';
+  }
+}
+
+function toLiveCameraStreamUrl(camera: CameraResponse) {
+  if (camera.displayStreamUrl && camera.displayStreamUrl.trim().length > 0) {
+    return camera.displayStreamUrl.trim();
+  }
+  return streamUrl(camera.cameraLoginId || camera.cameraId.toString());
 }
 
 export function NurseDashboard({
@@ -66,6 +104,7 @@ export function NurseDashboard({
   const [newCamRtspUrl, setNewCamRtspUrl] = useState('');
   const [newCamLocation, setNewCamLocation] = useState('');
   const [newCamPassword, setNewCamPassword] = useState('');
+  const [newCamSourceType, setNewCamSourceType] = useState<'REAL_RTSP' | 'SIMULATED_RTSP'>('REAL_RTSP');
   const [showNewCamPw, setShowNewCamPw] = useState(false);
   const [showCamPwId, setShowCamPwId] = useState<string | null>(null);
 
@@ -79,18 +118,19 @@ export function NurseDashboard({
 
   // --- Derived Live Cameras for Monitoring (using backend data) ---
   const liveCameras = useMemo<LiveCamera[]>(() => {
-    return registeredCameras.map(cam => ({
-      id: cam.cameraId.toString(),
-      name: cam.cameraName,
-      location: cam.locationDescription,
-      streamUrl: cam.rtspUrl || '',
-      connectionStatus: (cam.status === 'ACTIVE' ? 'online' : 'offline') as CameraConnectionStatus,
-      eventStatus: 'normal' as CameraEventStatus,
-    }));
-  }, [registeredCameras]);
+    return [HARDCODED_LIVE_CAMERA];
+  }, []);
 
   // --- Facility Fetch Logic (Automatic) ---
   const loadInitialData = useCallback(async () => {
+    if (userType === 'individual') {
+      setFacilities([]);
+      setCurrentFacility(null);
+      setRegisteredCameras([]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       const userFacilities = await fetchMyFacilities();
@@ -103,7 +143,7 @@ export function NurseDashboard({
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userType]);
 
   useEffect(() => {
     loadInitialData();
@@ -111,6 +151,10 @@ export function NurseDashboard({
 
   // --- Camera Fetch Logic ---
   const refreshCameras = useCallback(async () => {
+    if (userType === 'individual') {
+      setRegisteredCameras([]);
+      return;
+    }
     if (!currentFacility) return;
     try {
       setIsLoadingCameras(true);
@@ -121,7 +165,7 @@ export function NurseDashboard({
     } finally {
       setIsLoadingCameras(false);
     }
-  }, [currentFacility]);
+  }, [currentFacility, userType]);
 
   useEffect(() => {
     refreshCameras();
@@ -144,6 +188,9 @@ export function NurseDashboard({
     setFocusedCameraId,
     connectionState,
   } = useAiAlertActions({ userType, username, liveCameras, focusHome });
+
+  // --- Real-time Camera Status from MQTT (23.md 1순위 UI/UX) ---
+  const cameraStatusMap = useCameraStatusWebSocket();
 
   const {
     alerts,
@@ -198,8 +245,9 @@ export function NurseDashboard({
         cameraSerialNumber: newCamSerialNumber.trim(),
         cameraLoginId: newCamLoginId.trim() || undefined,
         cameraPassword: newCamPassword.trim() || undefined,
-        rtspUrl: newCamRtspUrl.trim() || undefined,
+        rtspUrl: newCamSourceType === 'SIMULATED_RTSP' ? undefined : newCamRtspUrl.trim() || undefined,
         locationDescription: newCamLocation.trim() || '미지정',
+        sourceType: newCamSourceType,
       });
       setNewCamName('');
       setNewCamSerialNumber('');
@@ -207,11 +255,12 @@ export function NurseDashboard({
       setNewCamRtspUrl('');
       setNewCamLocation('');
       setNewCamPassword('');
+      setNewCamSourceType('REAL_RTSP');
       setShowNewCamPw(false);
       setShowAddCamera(false);
       refreshCameras();
-    } catch (error) {
-      alert('카메라 등록에 실패했습니다.');
+    } catch (error: any) {
+      alert(`카메라 등록에 실패했습니다: ${error.message || error}`);
     }
   };
 
@@ -248,6 +297,8 @@ export function NurseDashboard({
       location: cam.locationDescription,
       status: cam.status,
       rtspUrl: cam.rtspUrl,
+      sourceType: cam.sourceType,
+      assignedVideoPath: cam.assignedVideoPath,
       password: '****'
     }));
   }, [registeredCameras]);
@@ -388,6 +439,7 @@ export function NurseDashboard({
               onConfirmAiEvent={handleConfirmAiEvent}
               onEmergency={handleTriggerEmergency}
               onFocusAiEvent={focusAiEventCamera}
+              cameraStatusMap={cameraStatusMap}
             />
           )}
           {activeMenu === 'alerts' && (
@@ -458,6 +510,7 @@ export function NurseDashboard({
           newCamSerialNumber={newCamSerialNumber}
           newCamPassword={newCamPassword}
           newCamRtspUrl={newCamRtspUrl}
+          newCamSourceType={newCamSourceType}
           showNewCamPw={showNewCamPw}
           onClose={() => {
             setShowAddCamera(false);
@@ -469,6 +522,7 @@ export function NurseDashboard({
           onSerialNumberChange={setNewCamSerialNumber}
           onPasswordChange={setNewCamPassword}
           onRtspUrlChange={setNewCamRtspUrl}
+          onSourceTypeChange={setNewCamSourceType}
           onSubmit={handleAddCamera}
           onTogglePassword={() => setShowNewCamPw((prev) => !prev)}
         />
