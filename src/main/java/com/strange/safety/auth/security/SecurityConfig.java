@@ -62,6 +62,9 @@ public class SecurityConfig {
                                 "/api/emergency-jurisdictions/resolve"
                         ).permitAll()
 
+                        // ADMIN 전용
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
                         // USER 접근 가능
                         .requestMatchers(
                                 "/api/facilities/**",
