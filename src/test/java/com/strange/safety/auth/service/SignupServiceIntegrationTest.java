@@ -24,7 +24,6 @@ import com.strange.safety.user.entity.AgreementType;
 import com.strange.safety.user.repository.UserAgreementRepository;
 import com.strange.safety.user.repository.UserRepository;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -164,12 +163,11 @@ class SignupServiceIntegrationTest {
         String token = verifiedToken("01055556666");
 
         var response = signupService.signupCorporate(corporateRequest(
-                "corporate@example.com", "01055556666", token, "123-45-67890", null));
+                "corporate@example.com", "01055556666", token, "123-45-67890"));
 
         assertThat(response.role()).isEqualTo(Role.CORPORATE);
         assertThat(userRepository.count()).isEqualTo(1);
         assertThat(companyProfileRepository.count()).isEqualTo(1);
-        assertThat(installationRequestRepository.count()).isZero();
         assertThat(userAgreementRepository.count()).isEqualTo(3);
 
         var profile = companyProfileRepository.findAll().get(0);
@@ -179,25 +177,15 @@ class SignupServiceIntegrationTest {
     }
 
     @Test
-    void corporateSignupCreatesInstallationRequestWhenProvided() {
-        String token = verifiedToken("01055556666");
-
-        signupService.signupCorporate(corporateRequest(
-                "corporate-installation@example.com", "01055556666", token, "123-45-67890"));
-
-        assertThat(companyProfileRepository.count()).isEqualTo(1);
-        assertThat(installationRequestRepository.count()).isEqualTo(1);
-    }
-
-    @Test
     void corporateSignupFailureRollsBackUserAndProfile() {
         String token = verifiedToken("01055556666");
-        var base = corporateRequest("x@example.com", "01055556666", token, "1234567890");
         var invalid = new CorporateSignupRequest(
                 "corporate-rollback@example.com", "Password123!", "01055556666", token,
-                base.company(),
-                base.manager(),
-                new CorporateSignupRequest.InstallationRequest("6-15", null, null),
+                new CorporateSignupRequest.CompanyRequest(
+                        "Smart Safety Hospital", "1234567890", "medical", "50-200",
+                        "99999", "Unknown address", null, null, null, null),
+                new CorporateSignupRequest.ManagerRequest(
+                        "company manager", "safety team", "manager", "manager@example.com", "02-555-1234"),
                 requiredAgreements(true)
         );
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
@@ -311,16 +299,6 @@ class SignupServiceIntegrationTest {
     }
 
     private CorporateSignupRequest corporateRequest(String email, String phone, String token, String businessNumber) {
-        return corporateRequest(
-                email, phone, token, businessNumber,
-                new CorporateSignupRequest.InstallationRequest(
-                        "6-15", LocalDate.of(2026, 7, 1), "outdoor camera installation")
-        );
-    }
-
-    private CorporateSignupRequest corporateRequest(String email, String phone, String token,
-                                                    String businessNumber,
-                                                    CorporateSignupRequest.InstallationRequest installation) {
         return new CorporateSignupRequest(
                 email, "Password123!", phone, token,
                 new CorporateSignupRequest.CompanyRequest(
@@ -328,7 +306,6 @@ class SignupServiceIntegrationTest {
                         "06123", "서울특별시 강남구 테헤란로 1", "Safety Office", "역삼동", "마포구", "마포소방서"),
                 new CorporateSignupRequest.ManagerRequest(
                         "company manager", "safety team", "manager", "manager@example.com", "02-555-1234"),
-                installation,
                 requiredAgreements(true)
         );
     }
