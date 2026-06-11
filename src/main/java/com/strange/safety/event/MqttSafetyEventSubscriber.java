@@ -18,8 +18,7 @@ import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
-import com.strange.safety.alert.service.AlertEventService;
-import com.strange.safety.camera.service.CameraStatusService;
+
 
 @Component
 public class MqttSafetyEventSubscriber implements MqttCallbackExtended {
@@ -29,11 +28,7 @@ public class MqttSafetyEventSubscriber implements MqttCallbackExtended {
     private static final String CAMERA_STATUS_TOPIC = "safety/cameras/status";
 
     private final ObjectMapper objectMapper;
-    private final AlertBroadcastService alertBroadcastService;
-    private final AlertEventService alertEventService;
-    private final CameraStatusBroadcastService cameraStatusBroadcastService;
-    private final CameraStatusService cameraStatusService;
-    private final FcmService fcmService;
+    private final AsyncEventProcessorService asyncEventProcessorService;
     private final MqttConnectOptions connectOptions;
     private final String brokerUrl;
     private final String clientId;
@@ -44,22 +39,14 @@ public class MqttSafetyEventSubscriber implements MqttCallbackExtended {
 
     public MqttSafetyEventSubscriber(
             ObjectMapper objectMapper,
-            AlertBroadcastService alertBroadcastService,
-            AlertEventService alertEventService,
-            CameraStatusBroadcastService cameraStatusBroadcastService,
-            CameraStatusService cameraStatusService,
-            FcmService fcmService,
+            AsyncEventProcessorService asyncEventProcessorService,
             MqttConnectOptions connectOptions,
             @Value("${mqtt.broker-url:tcp://localhost:1883}") String brokerUrl,
             @Value("${mqtt.client-id:safety-backend}") String clientId,
             @Value("${mqtt.topic:safety/events}") String topic
     ) {
         this.objectMapper = objectMapper;
-        this.alertBroadcastService = alertBroadcastService;
-        this.alertEventService = alertEventService;
-        this.cameraStatusBroadcastService = cameraStatusBroadcastService;
-        this.cameraStatusService = cameraStatusService;
-        this.fcmService = fcmService;
+        this.asyncEventProcessorService = asyncEventProcessorService;
         this.connectOptions = connectOptions;
         this.brokerUrl = brokerUrl;
         this.clientId = clientId;
@@ -121,14 +108,7 @@ public class MqttSafetyEventSubscriber implements MqttCallbackExtended {
     private void handleCameraStatusEvent(String payload) {
         try {
             CameraStatusEventDto event = objectMapper.readValue(payload, CameraStatusEventDto.class);
-            log.info("Camera status event received: cameraLoginId={}, status={}, reason={}",
-                    event.cameraLoginId(), event.status(), event.reason());
-
-            // 1. CAMERA.connectionStatus 갱신 + CAMERA_STATUS_LOGS 저장
-            cameraStatusService.applyStatusEvent(event);
-
-            // 2. WebSocket으로 프론트엔드에 실시간 상태 브로드캐스트
-            cameraStatusBroadcastService.broadcast(event);
+            asyncEventProcessorService.processCameraStatusEvent(event);
 
         } catch (JsonProcessingException ex) {
             log.error("Failed to parse MQTT camera status event JSON: payload={}", payload, ex);
@@ -139,21 +119,8 @@ public class MqttSafetyEventSubscriber implements MqttCallbackExtended {
 
     private void handleSafetyEvent(String payload) {
         try {
-            log.info("[MQTT Debug] Parsing safety event payload: {}", payload);
             SafetyEventDto event = objectMapper.readValue(payload, SafetyEventDto.class);
-            log.info("[MQTT Debug] Parsed event. type={}, cameraId={}", event.type(), event.cameraId());
-            
-            // 1. DB 저장
-            alertEventService.createEvent(event);
-            log.info("[MQTT Debug] DB save successful for cameraId={}", event.cameraId());
-            
-            // 2. WebSocket 알림
-            alertBroadcastService.broadcast(event);
-            log.info("[MQTT Debug] Broadcast successful for cameraId={}", event.cameraId());
-
-            // 3. FCM 모바일 푸시 알림
-            fcmService.sendAlertNotification(event);
-
+            asyncEventProcessorService.processEvent(event);
         } catch (Exception e) {
             log.error("[MQTT Debug] Failed to process MQTT safety event: payload={}, error={}", payload, e.getMessage(), e);
         }
