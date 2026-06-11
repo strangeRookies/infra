@@ -4,6 +4,7 @@ import com.strange.safety.common.exception.CustomException;
 import com.strange.safety.common.exception.ErrorCode;
 import com.strange.safety.company.entity.CompanyProfile;
 import com.strange.safety.company.repository.CompanyProfileRepository;
+import com.strange.safety.facility.dto.AdminFacilityResponse;
 import com.strange.safety.facility.dto.CreateFacilityRequest;
 import com.strange.safety.facility.dto.FacilityResponse;
 import com.strange.safety.facility.dto.UpdateFacilityRequest;
@@ -18,6 +19,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -88,5 +92,17 @@ public class FacilityService {
             throw new CustomException(ErrorCode.FACILITY_ACCESS_DENIED);
         }
         return facility;
+    }
+
+    public Facility getFacilityForAdmin(Long facilityId) {
+        return facilityRepository.findById(facilityId)
+                .filter(Facility::isActive)
+                .orElseThrow(() -> new CustomException(ErrorCode.FACILITY_NOT_FOUND));
+    }
+
+    public List<AdminFacilityResponse> getAllFacilitiesForAdmin() {
+        return facilityRepository.findAllActiveCorpFacilities().stream()
+                .map(AdminFacilityResponse::from)
+                .collect(Collectors.toList());
     }
 }

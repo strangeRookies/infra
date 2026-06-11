@@ -48,7 +48,10 @@ public enum ErrorCode {
     SCENARIO_NOT_FOUND(HttpStatus.NOT_FOUND, "SCENARIO_NOT_FOUND", "시나리오를 찾을 수 없습니다."),
     SCENARIO_PARAMS_NOT_FOUND(HttpStatus.NOT_FOUND, "SCENARIO_PARAMS_NOT_FOUND", "시나리오 파라미터를 찾을 수 없습니다."),
 
-    INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "INQUIRY_NOT_FOUND", "문의 내역을 찾을 수 없습니다.");
+    INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "INQUIRY_NOT_FOUND", "문의 내역을 찾을 수 없습니다."),
+
+    EXCEL_INVALID_FORMAT(HttpStatus.BAD_REQUEST, "EXCEL_INVALID_FORMAT", "엑셀 파일 형식이 올바르지 않습니다. (.xls, .xlsx만 허용)"),
+    EXCEL_PARSE_ERROR(HttpStatus.BAD_REQUEST, "EXCEL_PARSE_ERROR", "엑셀 파일 파싱 중 오류가 발생했습니다.");
 
     private final HttpStatus status;
     private final String code;
