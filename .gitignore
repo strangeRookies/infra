@@ -1,5 +1,6 @@
 # Security Audit Report
 SECURITY_AUDIT.md
+AGENTS.md
 
 .gradle/
 build/
