@@ -13,7 +13,6 @@ import com.strange.safety.auth.security.RefreshTokenHasher;
 import com.strange.safety.common.exception.CustomException;
 import com.strange.safety.common.exception.ErrorCode;
 import com.strange.safety.company.repository.CompanyProfileRepository;
-import com.strange.safety.company.repository.InstallationRequestRepository;
 import com.strange.safety.emergency.repository.EmergencyContactRepository;
 import com.strange.safety.event.MqttSafetyEventSubscriber;
 import com.strange.safety.facility.repository.FacilityRepository;
@@ -42,7 +41,6 @@ class SignupServiceIntegrationTest {
     @Autowired SignupService signupService;
     @Autowired UserRepository userRepository;
     @Autowired CompanyProfileRepository companyProfileRepository;
-    @Autowired InstallationRequestRepository installationRequestRepository;
     @Autowired FacilityRepository facilityRepository;
     @Autowired UserFacilityRepository userFacilityRepository;
     @Autowired ProtectedTargetRepository protectedTargetRepository;
@@ -62,7 +60,6 @@ class SignupServiceIntegrationTest {
         protectedTargetRepository.deleteAll();
         userFacilityRepository.deleteAll();
         facilityRepository.deleteAll();
-        installationRequestRepository.deleteAll();
         companyProfileRepository.deleteAll();
         smsVerificationRepository.deleteAll();
         userRepository.deleteAll();
@@ -197,7 +194,6 @@ class SignupServiceIntegrationTest {
         assertThat(userRepository.count()).isZero();
         assertThat(userAgreementRepository.count()).isZero();
         assertThat(companyProfileRepository.count()).isZero();
-        assertThat(installationRequestRepository.count()).isZero();
     }
 
     @Test
