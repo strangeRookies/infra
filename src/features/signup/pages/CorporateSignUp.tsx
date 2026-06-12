@@ -72,7 +72,6 @@ export function CorporateSignUp({ onBackToLogin, onSignUpComplete }: CorporateSi
 
   const [managerName, setManagerName] = useState('');
   const [managerDept, setManagerDept] = useState('');
-  const [managerRank, setManagerRank] = useState('');
   const [managerContact, setManagerContact] = useState('');
   const [managerEmail, setManagerEmail] = useState('');
 
@@ -282,7 +281,7 @@ export function CorporateSignUp({ onBackToLogin, onSignUpComplete }: CorporateSi
         setIsSubmitting(false);
       }
     } else if (step === 3) {
-      if (!managerName.trim() || !managerDept.trim() || !managerRank.trim() || !managerEmail.trim()) {
+      if (!managerName.trim() || !managerDept.trim() || !managerEmail.trim()) {
         alert('담당자 필수 정보를 모두 입력해주세요.');
         return;
       }
@@ -329,7 +328,6 @@ export function CorporateSignUp({ onBackToLogin, onSignUpComplete }: CorporateSi
           manager: {
             name: managerName.trim(),
             department: managerDept.trim(),
-            rank: managerRank.trim(),
             email: managerEmail.trim(),
             contact: normalizePhoneNumber(managerContact || managerPhone),
           },
@@ -670,17 +668,6 @@ export function CorporateSignUp({ onBackToLogin, onSignUpComplete }: CorporateSi
                     value={managerDept}
                     onChange={(e) => setManagerDept(e.target.value)}
                     placeholder="부서 입력"
-                    className="w-full px-4 py-3 bg-[#070e1b] border border-slate-800 rounded-xl text-xs text-white focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-300">직급</label>
-                  <input
-                    type="text"
-                    value={managerRank}
-                    onChange={(e) => setManagerRank(e.target.value)}
-                    placeholder="예: 과장"
                     className="w-full px-4 py-3 bg-[#070e1b] border border-slate-800 rounded-xl text-xs text-white focus:outline-none"
                   />
                 </div>
