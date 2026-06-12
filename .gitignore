@@ -15,6 +15,7 @@ out/
 src/main/resources/application-local.yml
 
 Codex.md
+CLAUDE.md
 dex.md
 PROJECT_SUMMARY.md
 docs/SMS_DEVELOPMENT_PLAN.md
