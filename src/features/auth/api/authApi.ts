@@ -124,7 +124,6 @@ export interface CorporateSignupPayload {
   manager: {
     name: string;
     department: string;
-    rank: string;
     email: string;
     contact: string;
   };
