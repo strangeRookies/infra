@@ -70,7 +70,7 @@ public class CameraService {
 
     public List<CameraResponse> getCameras(Long userId, Long facilityId) {
         facilityService.getFacilityWithOwnerCheck(userId, facilityId);
-        return cameraRepository.findByFacility_Id(facilityId).stream()
+        return cameraRepository.findByFacility_IdAndStatus(facilityId, CameraStatus.ACTIVE).stream()
                 .map(CameraResponse::from)
                 .collect(Collectors.toList());
     }
@@ -99,9 +99,7 @@ public class CameraService {
     }
 
     public List<CameraResponse> getActiveAiCameras() {
-        return cameraRepository.findAll().stream()
-                .filter(Camera::isAiEnabled)
-                .filter(c -> c.getStatus() == CameraStatus.ACTIVE)
+        return cameraRepository.findByAiEnabledTrueAndStatus(CameraStatus.ACTIVE).stream()
                 .map(CameraResponse::from)
                 .collect(Collectors.toList());
     }
