@@ -5,7 +5,7 @@ import { fetchMyInquiries, createInquiry } from '../api/inquiryApi';
 import { useAiAlertActions } from '../../../hooks/useAiAlertActions';
 import { useDashboardAlerts } from '../hooks/useDashboardAlerts';
 import type { MenuId, InquiryCategory, IncidentAlert } from '../types/dashboard';
-import { streamUrl, type LiveCamera, type CameraConnectionStatus, type CameraEventStatus } from '../data/cameras';
+import { STREAM_MODE, cameraLoginIdFor, getDynamicStreamUrl, streamRenderKind, type LiveCamera, type CameraConnectionStatus, type CameraEventStatus } from '../data/cameras';
 import {
   ALL_MENU_ITEMS,
   CATEGORIES,
@@ -65,10 +65,10 @@ function isVisibleLiveCamera(camera: CameraResponse) {
 }
 
 function toLiveCameraStreamUrl(camera: CameraResponse) {
-  if (camera.displayStreamUrl && camera.displayStreamUrl.trim().length > 0) {
-    return camera.displayStreamUrl.trim();
-  }
-  return streamUrl(camera.cameraLoginId || camera.cameraId.toString());
+  const cameraLoginId = cameraLoginIdFor(camera.cameraLoginId, camera.cameraId);
+  const url = getDynamicStreamUrl(cameraLoginId);
+  console.log(`[CCTV Stream URL] mode=${STREAM_MODE}, cameraLoginId=${cameraLoginId}, cameraId=${camera.cameraId} -> ${url}`);
+  return url;
 }
 
 export function NurseDashboard({
@@ -117,12 +117,14 @@ export function NurseDashboard({
     return registeredCameras
       .filter(isVisibleLiveCamera)
       .map((camera) => ({
-        id: camera.cameraLoginId || camera.cameraId.toString(),
-        cameraLoginId: camera.cameraLoginId,
+        id: cameraLoginIdFor(camera.cameraLoginId, camera.cameraId),
+        cameraLoginId: cameraLoginIdFor(camera.cameraLoginId, camera.cameraId),
         cameraDbId: camera.cameraId.toString(),
         name: camera.cameraName || camera.cameraLoginId,
         location: camera.locationDescription || camera.cameraLoginId || '-',
         streamUrl: toLiveCameraStreamUrl(camera),
+        streamMode: STREAM_MODE,
+        streamKind: streamRenderKind(),
         connectionStatus: toLiveCameraConnectionStatus(camera),
         eventStatus: 'normal',
       }));
@@ -313,6 +315,7 @@ export function NurseDashboard({
     : null;
 
   const playbackStreamUrl = selectedCameraObj?.streamUrl || liveCameras[0]?.streamUrl;
+  const playbackStreamKind = selectedCameraObj?.streamKind || liveCameras[0]?.streamKind;
 
   // --- Loading View ---
   if (isLoading) {
@@ -552,6 +555,7 @@ export function NurseDashboard({
           isPlaying={isPlaying}
           playbackProgress={playbackProgress}
           playbackStreamUrl={playbackStreamUrl}
+          playbackStreamKind={playbackStreamKind}
           onClose={() => setSelectedIncident(null)}
           onPlaybackProgressChange={setPlaybackProgress}
           onTogglePlaying={() => setIsPlaying((prev) => !prev)}
