@@ -102,7 +102,7 @@ public class SignupService {
                 .industry(company.industry()).companySize(company.size()).postalCode(company.postcode())
                 .address(company.address()).addressDetail(company.addressDetail()).district(jurisdiction.district())
                 .emergency119Jurisdiction(jurisdiction.jurisdiction()).managerName(manager.name())
-                .managerDepartment(manager.department()).managerRank(manager.rank())
+                .managerDepartment(manager.department())
                 .managerEmail(normalizeEmail(manager.email()))
                 .managerContact(normalizeContactNumber(manager.contact()))
                 .build());

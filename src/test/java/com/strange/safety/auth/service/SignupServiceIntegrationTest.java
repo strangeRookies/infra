@@ -182,7 +182,7 @@ class SignupServiceIntegrationTest {
                         "Smart Safety Hospital", "1234567890", "medical", "50-200",
                         "99999", "Unknown address", null, null, null, null),
                 new CorporateSignupRequest.ManagerRequest(
-                        "company manager", "safety team", "manager", "manager@example.com", "02-555-1234"),
+                        "company manager", "safety team", "manager@example.com", "02-555-1234"),
                 requiredAgreements(true)
         );
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
@@ -301,7 +301,7 @@ class SignupServiceIntegrationTest {
                         "Smart Safety Hospital", businessNumber, "medical", "50-200",
                         "06123", "서울특별시 강남구 테헤란로 1", "Safety Office", "역삼동", "마포구", "마포소방서"),
                 new CorporateSignupRequest.ManagerRequest(
-                        "company manager", "safety team", "manager", "manager@example.com", "02-555-1234"),
+                        "company manager", "safety team", "manager@example.com", "02-555-1234"),
                 requiredAgreements(true)
         );
     }

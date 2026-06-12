@@ -30,7 +30,6 @@ public record CorporateSignupRequest(
     public record ManagerRequest(
             @NotBlank String name,
             String department,
-            String rank,
             @Email @NotBlank String email,
             @NotBlank String contact
     ) {

@@ -91,7 +91,6 @@ class AuthControllerTest {
                                   "manager": {
                                     "name": "company manager",
                                     "department": "safety team",
-                                    "rank": "manager",
                                     "email": "manager@example.com",
                                     "contact": "02-555-1234"
                                   },

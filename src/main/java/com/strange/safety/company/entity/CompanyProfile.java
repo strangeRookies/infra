@@ -46,8 +46,6 @@ public class CompanyProfile extends BaseEntity {
     private String managerName;
     @Column(name = "manager_department")
     private String managerDepartment;
-    @Column(name = "manager_rank")
-    private String managerRank;
     @Column(name = "manager_email")
     private String managerEmail;
     @Column(name = "manager_contact")
@@ -57,7 +55,7 @@ public class CompanyProfile extends BaseEntity {
     private CompanyProfile(User user, String companyName, String businessRegistrationNumber,
                            String industry, String companySize, String postalCode, String address,
                            String addressDetail, String district, String emergency119Jurisdiction,
-                           String managerName, String managerDepartment, String managerRank,
+                           String managerName, String managerDepartment,
                            String managerEmail, String managerContact) {
         this.user = user;
         this.companyName = companyName;
@@ -71,7 +69,6 @@ public class CompanyProfile extends BaseEntity {
         this.emergency119Jurisdiction = emergency119Jurisdiction;
         this.managerName = managerName;
         this.managerDepartment = managerDepartment;
-        this.managerRank = managerRank;
         this.managerEmail = managerEmail;
         this.managerContact = managerContact;
     }
