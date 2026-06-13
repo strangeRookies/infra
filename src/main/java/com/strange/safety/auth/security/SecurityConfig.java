@@ -48,6 +48,11 @@ public class SecurityConfig {
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).permitAll()
+                        .requestMatchers(
                                 "/api/auth/signup/individual",
                                 "/api/auth/signup/corporate",
                                 "/api/auth/login",
