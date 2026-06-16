@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smart-safety-backend
+  labels:
+    app: smart-safety-backend
+spec:
+  replicas: 2 # 노드를 2대 띄웠으므로 고가용성을 위해 2개로 지정.
+  selector:
+    matchLabels:
+      app: smart-safety-backend
+  template:
+    metadata:
+      labels:
+        app: smart-safety-backend
+    spec:
+      containers:
+      - name: smart-safety-backend
+        #ECR 백엔드 이미지 주소
+        image: 549328952175.dkr.ecr.ap-northeast-2.amazonaws.com/smart-safety-backend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        
+        # 데이터베이스 연결 및 애플리케이션 환경 변수 설정
+        env: 
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:postgresql://smart-safety-db.cleq04iqogz6.ap-northeast-2.rds.amazonaws.com:5432/
+smart-safety-db"
+        - name: SPRING_DATASOURCE_USERNAME
+          value: "postgres"
+        - name: SPRING_DATASOURCE_PASSWORD
+          value: "Ewp~12345"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smart-safety-backend-service
+spec:
+  type: ClusterIP # 클러스터 내부에서 프론트엔드와 통신하기 위한 내부용 IP.
+  selector:
+    app: smart-safety-backend
+  ports:
+  - port: 8080
+    targetPort: 8080
