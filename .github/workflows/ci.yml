@@ -51,7 +51,7 @@ jobs:
   # [Job 2] GPU PC 접속 및 AI 프로세스 재배포 작업
   # ==========================================
   deploy-ai-to-gpu:
-    needs: build # 반드시 위의 build 과정이 성공해야만 실행됨
+    needs: build
     runs-on: ubuntu-latest
 
     steps:
@@ -70,16 +70,13 @@ jobs:
           git checkout codex/ai-worker-flow-improvements
           git pull origin codex/ai-worker-flow-improvements
 
-          echo "==== 1. 기존 포트 및 프로세스 정리 ===="
-          # 회원님의 entrypoint.sh에 있는 자폭 방지 킬 로직 완벽 적용
+          echo "==== 1. 기존 포트 및 프로세스 안전하게 정리 ===="
+          # SSH 접속을 끊어버리는 fuser 명령어 제거!
+          # 파이썬 프로세스만 정확히 타겟팅하여 안전하게 종료합니다.
           pkill -f "[s]cripts/run_registered_cameras.py" || true
           pkill -f "[s]cripts/start_simulated_rtsp_from_folder.py" || true
           pkill -f "[s]cripts/serve_ai_overlay.py" || true
-          pkill -f "[r]tsp://127.0.0.1:8554" || true
-          fuser -k 8010/tcp || true
-          fuser -k 8011/tcp || true
-          fuser -k 8012/tcp || true
-          fuser -k 8013/tcp || true
+          
           docker rm -f mediamtx || true
 
           echo "==== 2. MediaMTX 실행 ===="
@@ -95,7 +92,6 @@ jobs:
             --rtsp-port 8554 \
             --poll-interval 30 > publisher.log 2>&1 </dev/null &
 
-          # MQTT 고정 IP(15.165.248.37) 반영
           nohup python scripts/run_registered_cameras.py \
             --backend-base-url http://127.0.0.1:8080 \
             --rtsp-base-url rtsp://127.0.0.1:8554 \
