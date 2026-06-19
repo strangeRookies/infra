@@ -25,4 +25,3 @@ docs/
 
 # Docker
 postgres_data/
-docker-compose.yml

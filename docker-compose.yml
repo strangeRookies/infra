@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  # 서비스 이름
+  redis:
+    # 가장 가볍고 안정적인 Redis 공식 이미지 사용
+    image: redis:alpine
+    # 실행될 도커 컨테이너의 이름 설정
+    container_name: safety-redis
+    # 외부(내 컴퓨터)와 컨테이너 내부의 포트를 연결 (기본 포트: 6379)
+    ports:
+      - "6379:6379"
+    # Redis 서버 실행 시 비밀번호 설정을 강제하는 명령어 추가
+    command: redis-server --requirepass "${REDIS_PASSWORD}"
+    # 도커 컨테이너가 꺼지거나 재부팅되어도 캐시 데이터가 날아가지 않도록 저장소 연결
+    volumes:
+      - redis-data:/data
+    # 로컬 컴퓨터가 켜져 있는 동안 도커가 꺼지면 자동으로 다시 켜지도록 설정
+    restart: always
+
+# 내 컴퓨터 하드디스크에 생성될 실제 데이터 저장소 공간 정의
+volumes:
+  redis-data:
