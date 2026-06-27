@@ -40,7 +40,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-local-development-jwt-secret-change-before-shared-use-32bytes}
       AES_SECRET_KEY: ${AES_SECRET_KEY:-StrangeSafetyKey}
       AES_IV: ${AES_IV:-StrangeSafetyIv!}
-      REDIS_HOST: redis
+      REDIS_HOST: ${REDIS_HOST:-redis}
     depends_on:
       postgres:
         condition: service_healthy
