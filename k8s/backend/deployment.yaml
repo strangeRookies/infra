@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: backend
-        # 🚨 중요: 아래 주소는 ECR 창고 주소입니다. (초기 세팅용)
+        #중요: 아래 주소는 ECR 창고 주소입니다. )
         # 나중에 백엔드 깃액션이 latest 부분을 새로운 커밋 해시 번호로 덮어씌웁니다!
         image: 549328952175.dkr.ecr.ap-northeast-2.amazonaws.com/smart-safety-backend:latest
         imagePullPolicy: Always
@@ -26,3 +26,32 @@ spec:
         env:
         - name: SPRING_PROFILES_ACTIVE
           value: "prod"
+        # 데이터베이스 설정
+        - name: DB_URL
+          value: "jdbc:postgresql://smart-safety-db-new.cleq04iqogz6.ap-northeast-2.rds.amazonaws.com:5432/postgres?sslmode=require"
+        - name: DB_USERNAME
+          value: "postgres"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: smart-safety-secrets
+              key: DB_PASSWORD
+        # Redis 설정
+        - name: REDIS_HOST
+          value: "10.0.1.84"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: smart-safety-secrets
+              key: REDIS_PASSWORD
+        # 보안 설정
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: smart-safety-secrets
+              key: JWT_SECRET
+        - name: AES_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: smart-safety-secrets
+              key: AES_SECRET_KEY
