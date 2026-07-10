@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: smart-safety-backend-svc
+  namespace: default
+  labels:
+    app: backend
+spec:
+  type: NodePort # ALB와 연결하기 위해 NodePort 설정
+  selector:
+    app: backend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080

@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smart-safety-backend
+  namespace: default
+  labels:
+    app: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        # 🚨 중요: 아래 주소는 ECR 창고 주소입니다. (초기 세팅용)
+        # 나중에 백엔드 깃액션이 latest 부분을 새로운 커밋 해시 번호로 덮어씌웁니다!
+        image: 549328952175.dkr.ecr.ap-northeast-2.amazonaws.com/smart-safety-backend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "prod"
