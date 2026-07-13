@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smart-safety-frontend
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: smart-safety-frontend
+  template:
+    metadata:
+      labels:
+        app: smart-safety-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: 549328952175.dkr.ecr.ap-northeast-2.amazonaws.com/smart-safety-frontend:latest
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
