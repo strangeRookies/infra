@@ -36,7 +36,7 @@ module "vpc" {
   enable_dns_hostnames = true
   enable_dns_support   = true
 
- #쿠버네티스 로드밸런서 자동 생성을 위한 태그
+  # 쿠버네티스 로드밸런서 자동 생성을 위한 태그
   public_subnet_tags = {
     "kubernetes.io/role/elb" = "1"
   }
@@ -47,24 +47,63 @@ module "vpc" {
 }
 
 # ==========================================
-# 1. 오직 프라이빗 서브넷만 포함된 DB 서브넷 그룹 생성
+# 💡 [추가됨] 운영 DB 전용 보안 그룹 생성
+# 새 VPC 내부에서 파드들이 DB(5432 포트)에 접근할 수 있도록 길을 열어줍니다.
+# ==========================================
+resource "aws_security_group" "db_sg_prod" {
+  name        = "smart-safety-db-sg-prod"
+  description = "Security Group for Production Database"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    description = "Allow PostgreSQL traffic from EKS Subnets"
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    # 새 VPC의 프라이빗 서브넷 대역에서 오는 트래픽만 허용
+    cidr_blocks = module.vpc.private_subnets_cidr_blocks 
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "smart-safety-db-sg-prod"
+  }
+}
+
+# ==========================================
+# 1. 오직 프라이빗 서브넷만 포함된 DB 서브넷 그룹 생성 (운영용 이름 변경)
 # ==========================================
 resource "aws_db_subnet_group" "private" {
-  name       = "smart-safety-db-private-subnet-group"
+  name       = "smart-safety-db-subnet-group-prod" # '-prod' 추가
   
   # VPC 모듈에서 만든 '프라이빗 서브넷(10.0.3.0, 10.0.4.0)'만 콕 집어서 배정합니다!
   subnet_ids = module.vpc.private_subnets
 
   tags = {
-    Name = "smart-safety-db-private-subnet-group"
+    Name = "smart-safety-db-subnet-group-prod"
   }
 }
 
 # ==========================================
-# 2. 스냅샷(세이브 파일)을 이용한 새 DB 인스턴스 복원
+# 💡 [보안 강화] SSM Parameter Store에서 운영 DB 비밀번호 안전하게 가져오기
+# ==========================================
+data "aws_ssm_parameter" "prod_db_password" {
+  # AWS 콘솔에 미리 만들어둔 SecureString 파라미터 경로를 적어줍니다.
+  name            = "/smart-safety/prod/db-password" 
+  with_decryption = true
+}
+
+# ==========================================
+# 2. 스냅샷(세이브 파일)을 이용한 운영 DB 인스턴스 복원 및 암호 교체
 # ==========================================
 resource "aws_db_instance" "restored_db" {
-  identifier          = "smart-safety-db-new" # 기존 DB와 이름이 겹치지 않게 '-new'를 붙입니다.
+  identifier          = "smart-safety-db-prod" # 기존 DB와 분리하기 위해 '-prod' 명칭 사용
   
   # 💡 방금 찍어둔 스냅샷 이름을 여기에 적어 세이브 파일을 불러옵니다!
   snapshot_identifier = "smart-safety-db-snapshot-01-0707" 
@@ -74,18 +113,24 @@ resource "aws_db_instance" "restored_db" {
   # 방금 위에서 만든 '프라이빗 전용 서브넷 그룹'을 연결 (핵심!)
   db_subnet_group_name   = aws_db_subnet_group.private.name
   
-  # 아까 확인했던 기존 완벽한 RDS 보안 그룹(smart-safety-rds-sg)의 ID를 그대로 연결
-  vpc_security_group_ids = ["sg-084077e3657dc1307"] 
+  # 위에서 새로 만든 운영 전용 DB 보안 그룹 연결
+  vpc_security_group_ids = [aws_security_group.db_sg_prod.id] 
 
   # 공인 IP 원천 차단! (절대 인터넷에서 접근 불가)
   publicly_accessible = false 
 
-  # 테스트/개발용이므로 추후 삭제하기 편하게 설정
+  # 테스트/개발용이므로 추후 삭제하기 편하게 설정 (실제 운영 시에는 false로 변경 권장)
   skip_final_snapshot = true
 
   storage_encrypted   = true 
+
+  # 💡 SSM에서 가져온 새 비밀번호로 기존 스냅샷 암호를 덮어씌웁니다.
+  password = data.aws_ssm_parameter.prod_db_password.value
 }
 
+# ==========================================
+# 3. EKS 클러스터 생성
+# ==========================================
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 19.0"
@@ -98,11 +143,11 @@ module "eks" {
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
-eks_managed_node_groups = {
+  eks_managed_node_groups = {
     initial = {
-      min_size     = 1  
-      max_size     = 3  
-      desired_size = 2  
+      min_size       = 1  
+      max_size       = 3  
+      desired_size   = 2  
       instance_types = ["t3.medium"]
       capacity_type  = "ON_DEMAND"
     }

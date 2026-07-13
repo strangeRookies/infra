@@ -28,7 +28,7 @@ spec:
           value: "prod"
         # 데이터베이스 설정
         - name: DB_URL
-          value: "jdbc:postgresql://smart-safety-db-new.cleq04iqogz6.ap-northeast-2.rds.amazonaws.com:5432/postgres?sslmode=require"
+          value: "jdbc:postgresql://smart-safety-db-prod.cleq04iqogz6.ap-northeast-2.rds.amazonaws.com:5432/postgres?sslmode=require"
         - name: DB_USERNAME
           value: "postgres"
         - name: DB_PASSWORD
