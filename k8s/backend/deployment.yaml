@@ -38,7 +38,7 @@ spec:
               key: DB_PASSWORD
         # Redis 설정
         - name: REDIS_HOST
-          value: "10.0.1.84"
+          value: "redis-service"
         - name: REDIS_PASSWORD
           valueFrom:
             secretKeyRef:
