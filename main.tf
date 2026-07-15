@@ -56,12 +56,11 @@ resource "aws_security_group" "db_sg_prod" {
   vpc_id      = module.vpc.vpc_id
 
   ingress {
-    description = "Allow PostgreSQL traffic from EKS Subnets"
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    # 새 VPC의 프라이빗 서브넷 대역에서 오는 트래픽만 허용
-    cidr_blocks = module.vpc.private_subnets_cidr_blocks 
+    description     = "Allow PostgreSQL traffic from EKS Nodes only"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [module.eks.node_security_group_id]
   }
 
   egress {
@@ -157,4 +156,238 @@ module "eks" {
     Environment = "dev"
     Terraform   = "true"
   }
+}
+
+# ==========================================
+# 4. CloudFront CDN 배포 (S3 HTTPS 지원용)
+# ==========================================
+resource "aws_cloudfront_origin_access_control" "oac" {
+  name                              = "s3-frontend-oac"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
+resource "aws_cloudfront_distribution" "cdn" {
+  origin {
+    domain_name              = "safety-web-dashboard-bucket.s3.ap-northeast-2.amazonaws.com"
+    origin_id                = "S3-Frontend"
+    origin_access_control_id = aws_cloudfront_origin_access_control.oac.id
+  }
+
+  enabled             = true
+  is_ipv6_enabled     = true
+  default_root_object = "index.html"
+
+  default_cache_behavior {
+    allowed_methods  = ["GET", "HEAD"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "S3-Frontend"
+
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+
+    viewer_protocol_policy = "allow-all"
+    min_ttl                = 0
+    default_ttl            = 3600
+    max_ttl                = 86400
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true # 기본 cloudfront.net SSL 인증서 사용
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  tags = {
+    Name        = "smart-safety-cdn"
+    Environment = "dev"
+  }
+}
+
+# ==========================================
+# 5. EKS 노드 스케일링 자동화를 위한 Lambda 및 IAM
+# ==========================================
+resource "aws_iam_role" "lambda_scheduler_role" {
+  name = "smart-safety-eks-scheduler-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "lambda_scheduler_policy" {
+  name = "smart-safety-eks-scheduler-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "eks:UpdateNodegroupConfig",
+          "eks:DescribeNodegroup",
+          "eks:ListNodegroups"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_scheduler_attach" {
+  role       = aws_iam_role.lambda_scheduler_role.name
+  policy_arn = aws_iam_policy.lambda_scheduler_policy.arn
+}
+
+resource "local_file" "lambda_code" {
+  filename = "${path.module}/lambda_function.py"
+  content  = <<EOF
+import boto3
+import os
+
+eks = boto3.client('eks')
+
+def handler(event, context):
+    action = event.get('action') # 'down' (종료) 또는 'up' (기동)
+    cluster_name = os.environ['CLUSTER_NAME']
+    
+    # EKS 클러스터 내부의 노드 그룹 목록을 조회하여 'initial'로 시작하는 노드 그룹 탐색
+    nodegroups_resp = eks.list_nodegroups(clusterName=cluster_name)
+    nodegroups = nodegroups_resp.get('nodegroups', [])
+    nodegroup_name = None
+    for ng in nodegroups:
+        if ng.startswith('initial'):
+            nodegroup_name = ng
+            break
+            
+    if not nodegroup_name:
+        if nodegroups:
+            nodegroup_name = nodegroups[0]
+        else:
+            raise Exception(f"No nodegroups found in cluster {cluster_name}")
+            
+    if action == 'down':
+        min_size = 0
+        max_size = 1 # EKS 제약: max_size는 1 이상이어야 함
+        desired_size = 0
+    else:
+        min_size = 1
+        max_size = 3
+        desired_size = 2
+        
+    print(f"Updating nodegroup {nodegroup_name} config: min={min_size}, max={max_size}, desired={desired_size}")
+    
+    response = eks.update_nodegroup_config(
+        clusterName=cluster_name,
+        nodegroupName=nodegroup_name,
+        scalingConfig={
+            'minSize': min_size,
+            'maxSize': max_size,
+            'desiredSize': desired_size
+        }
+    )
+    return {
+        'statusCode': 200,
+        'body': f"EKS nodegroup {nodegroup_name} config update initiated successfully."
+    }
+EOF
+}
+
+data "archive_file" "lambda_zip" {
+  type        = "zip"
+  source_file = local_file.lambda_code.filename
+  output_path = "${path.module}/lambda_function.zip"
+  depends_on  = [local_file.lambda_code]
+}
+
+resource "aws_lambda_function" "eks_scheduler" {
+  filename         = data.archive_file.lambda_zip.output_path
+  function_name    = "smart-safety-eks-scheduler"
+  role             = aws_iam_role.lambda_scheduler_role.arn
+  handler          = "lambda_function.handler"
+  runtime          = "python3.11"
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  timeout          = 30
+
+  environment {
+    variables = {
+      CLUSTER_NAME   = module.eks.cluster_name
+      NODEGROUP_NAME = "initial"
+    }
+  }
+}
+
+# ==========================================
+# 6. EventBridge 크론 규칙 정의 (KST 기준 정렬)
+# ==========================================
+# 퇴근 시간 자동 종료 규칙: 평일(월~금) KST 19:00 (UTC 10:00)
+resource "aws_cloudwatch_event_rule" "scale_down" {
+  name                = "smart-safety-eks-scale-down"
+  description         = "Scale down EKS nodes to 0 on weekdays KST 19:00"
+  schedule_expression = "cron(0 10 ? * MON-FRI *)"
+}
+
+resource "aws_cloudwatch_event_target" "target_down" {
+  rule      = aws_cloudwatch_event_rule.scale_down.name
+  target_id = "scale_down_target"
+  arn       = aws_lambda_function.eks_scheduler.arn
+  input     = jsonencode({ action = "down" })
+}
+
+# 출근 시간 자동 기동 규칙: 평일(월~금) KST 08:00 (UTC 23:00)
+resource "aws_cloudwatch_event_rule" "scale_up" {
+  name                = "smart-safety-eks-scale-up"
+  description         = "Scale up EKS nodes to 2 on weekdays KST 08:00"
+  schedule_expression = "cron(0 23 ? * SUN-THU *)"
+}
+
+resource "aws_cloudwatch_event_target" "target_up" {
+  rule      = aws_cloudwatch_event_rule.scale_up.name
+  target_id = "scale_up_target"
+  arn       = aws_lambda_function.eks_scheduler.arn
+  input     = jsonencode({ action = "up" })
+}
+
+# Lambda 실행 권한 부여 (EventBridge가 트리거할 수 있도록 허용)
+resource "aws_lambda_permission" "allow_eventbridge_down" {
+  statement_id  = "AllowExecutionFromEventBridgeDown"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.eks_scheduler.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.scale_down.arn
+}
+
+resource "aws_lambda_permission" "allow_eventbridge_up" {
+  statement_id  = "AllowExecutionFromEventBridgeUp"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.eks_scheduler.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.scale_up.arn
 }
