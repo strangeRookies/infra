@@ -19,7 +19,7 @@ spec:
       - name: backend
         #중요: 아래 주소는 ECR 창고 주소입니다. )
         # 나중에 백엔드 깃액션이 latest 부분을 새로운 커밋 해시 번호로 덮어씌웁니다!
-        image: 549328952175.dkr.ecr.ap-northeast-2.amazonaws.com/smart-safety-backend:8bcdb90d17d45f9076f7837f4f918f7a0e3d2acb
+        image: 549328952175.dkr.ecr.ap-northeast-2.amazonaws.com/smart-safety-backend:197bb881f61b594163e7509cb85a51cc0568b911
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
