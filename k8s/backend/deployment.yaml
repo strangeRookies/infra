@@ -28,8 +28,8 @@ spec:
           value: "15.165.248.37"
         - name: SPRING_PROFILES_ACTIVE
           value: "prod"
-          # cam_01 반복 경고 임시 숨김
-        - name: LOGGING_LEVEL_COM_STRANGE_SAFETY_CAMERA_OVERLAY_OVERLAYRELAYSERVICE
+
+        - name: LOGGING_LEVEL_COM_STRANGE_SAFETY_CAMERA_OVERLAY
           value: "ERROR"
         # 데이터베이스 설정
         - name: DB_URL
