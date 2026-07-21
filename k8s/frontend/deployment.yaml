@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: 549328952175.dkr.ecr.ap-northeast-2.amazonaws.com/smart-safety-frontend:2e2b40343108d68c5dca29ee60ce9c2aa039ae58
+        image: 549328952175.dkr.ecr.ap-northeast-2.amazonaws.com/smart-safety-frontend:6b820f9f19de4ee7d43ac46195fc9dd83544f178
         ports:
         - containerPort: 80
         resources:
