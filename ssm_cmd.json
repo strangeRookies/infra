@@ -1,0 +1,9 @@
+{
+  "InstanceIds": ["i-097bff2b84a77a157"],
+  "DocumentName": "AWS-RunShellScript",
+  "Parameters": {
+    "commands": [
+      "PGPASSWORD=EWp12345 psql -h smart-safety-db-new.cleq04iqogz6.ap-northeast-2.rds.amazonaws.com -U postgres -d postgres -c 'SELECT count(*) FROM cameras; SELECT count(*) FROM alert_events;'"
+    ]
+  }
+}

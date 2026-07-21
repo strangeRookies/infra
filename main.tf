@@ -142,15 +142,19 @@ module "eks" {
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
-  eks_managed_node_groups = {
-    initial = {
-      min_size       = 1  
-      max_size       = 3  
-      desired_size   = 2  
-      instance_types = ["t3.medium"]
-      capacity_type  = "ON_DEMAND"
-    }
-  }
+eks_managed_node_groups = {
+   initial = {
+     min_size       = 1  
+     max_size       = 3  
+     desired_size   = 2  
+     instance_types = ["t3.medium"]
+     capacity_type  = "ON_DEMAND"
+     iam_role_additional_policies = {
+       AmazonS3FullAccess = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+     }
+   }
+ }
+
 
   tags = {
     Environment = "dev"
@@ -169,15 +173,54 @@ resource "aws_cloudfront_origin_access_control" "oac" {
 }
 
 resource "aws_cloudfront_distribution" "cdn" {
+  # 1. S3 정적 프론트엔드 오리진
   origin {
     domain_name              = "safety-web-dashboard-bucket.s3.ap-northeast-2.amazonaws.com"
     origin_id                = "S3-Frontend"
     origin_access_control_id = aws_cloudfront_origin_access_control.oac.id
   }
 
+  # 2. EKS 백엔드 및 실시간 스트리밍 중계용 ALB 오리진
+  origin {
+    domain_name = "safety-backend-alb-EKS-1607216893.ap-northeast-2.elb.amazonaws.com"
+    origin_id   = "ALB-Backend"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
+
+  # 백엔드 API 및 실시간 영상/소켓 라우팅 (ALB 중계)
+  dynamic "ordered_cache_behavior" {
+    for_each = ["/api*", "/ws*", "/mjpeg*", "/stream*", "/live*", "/overlay*", "/health*"]
+    content {
+      path_pattern     = ordered_cache_behavior.value
+      target_origin_id = "ALB-Backend"
+
+      allowed_methods = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+      cached_methods  = ["GET", "HEAD"]
+
+      forwarded_values {
+        query_string = true
+        headers      = ["*"]
+        cookies {
+          forward = "all"
+        }
+      }
+
+      viewer_protocol_policy = "allow-all"
+      min_ttl                = 0
+      default_ttl            = 0
+      max_ttl                = 0
+    }
+  }
 
   default_cache_behavior {
     allowed_methods  = ["GET", "HEAD"]
@@ -210,6 +253,16 @@ resource "aws_cloudfront_distribution" "cdn" {
   tags = {
     Name        = "smart-safety-cdn"
     Environment = "dev"
+  }
+
+  # 💡 [추가된 부분]
+  # AWS 콘솔 상에서 동적으로 변경된 ALB 오리진 주소와 Behaviors 규칙을
+  # Terraform이 강제로 덮어쓰거나 초기화하지 않도록 예외 처리합니다.
+  lifecycle {
+    ignore_changes = [
+      origin,
+      ordered_cache_behavior
+    ]
   }
 }
 
